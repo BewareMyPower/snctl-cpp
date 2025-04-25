@@ -19,7 +19,7 @@ endif ()
 include_directories(${SIMPLEINI_INCLUDE_DIRS})
 
 find_package(RdKafka CONFIG REQUIRED)
-set(DEPS RdKafka::rdkafka)
+find_package(argparse CONFIG REQUIRED)
 
 add_executable(snctl-cpp main.cc)
-target_link_libraries(snctl-cpp PRIVATE ${DEPS})
+target_link_libraries(snctl-cpp PRIVATE argparse::argparse RdKafka::rdkafka)

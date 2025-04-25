@@ -1,4 +1,5 @@
 #include "SimpleIni.h"
+#include "argparse/argparse.hpp"
 #include "librdkafka/rdkafka.h"
 #include <array>
 #include <cstring>
@@ -10,10 +11,18 @@
 #include <unordered_map>
 
 int main(int argc, char *argv[]) {
-  if (argc < 2) {
-    throw std::runtime_error("Usage: " + std::string(argv[0]) + " <topic>");
+  argparse::ArgumentParser program("snctl-cpp");
+  argparse::ArgumentParser describe_command("describe");
+  describe_command.add_description("Describe a topic");
+  describe_command.add_argument("topic").help("Topic to describe").required();
+
+  program.add_subparser(describe_command);
+  program.parse_args(argc, argv);
+
+  if (!program.is_subcommand_used(describe_command)) {
+    throw std::runtime_error("Only describe command is supported");
   }
-  const auto topic = argv[1];
+  const auto topic = describe_command.get<std::string>("topic");
 
   CSimpleIni ini;
   if (auto rc = ini.LoadFile("sncloud.ini"); rc < 0) {
@@ -63,7 +72,7 @@ int main(int argc, char *argv[]) {
                   decltype(&rd_kafka_queue_destroy)>
       rkque_guard{rkqu, &rd_kafka_queue_destroy};
 
-  const char *topics[] = {topic};
+  const char *topics[] = {topic.c_str()};
   auto topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
   std::unique_ptr<std::remove_reference_t<decltype(*topic_names)>,
                   decltype(&rd_kafka_TopicCollection_destroy)>
@@ -95,15 +104,15 @@ int main(int argc, char *argv[]) {
           rd_kafka_TopicDescription_partitions(result_topic, &partition_cnt);
       for (size_t i = 0; i < partition_cnt; i++) {
         auto result_partition = partitions[i];
-        std::cout << "  partition: " << i << std::endl;
         auto id = rd_kafka_TopicPartitionInfo_partition(result_partition);
         auto leader = rd_kafka_TopicPartitionInfo_leader(result_partition);
         if (leader) {
-          std::cout << "  leader id: " << rd_kafka_Node_id(leader)
-                    << ", host: " << rd_kafka_Node_host(leader) << ":"
-                    << rd_kafka_Node_port(leader) << std::endl;
+          std::cout << "Partition[" << i << "] "
+                    << R"(leader: { "id": ")" << rd_kafka_Node_id(leader)
+                    << R"(, url: ")" << rd_kafka_Node_host(leader) << ':'
+                    << rd_kafka_Node_port(leader) << R"("})" << std::endl;
         } else {
-          std::cout << "  leader: <none>" << std::endl;
+          std::cout << "  has no leader" << std::endl;
         }
       }
     }

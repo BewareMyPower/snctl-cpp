@@ -5,6 +5,10 @@
   "builtin-baseline": "760bfd0c8d7c89ec640aec4df89418b7c2745605",
   "dependencies": [
     {
+      "name": "argparse",
+      "version>=": "3.2"
+    },
+    {
       "name": "librdkafka",
       "features": [
         "ssl"
