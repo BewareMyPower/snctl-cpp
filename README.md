@@ -24,27 +24,24 @@ Run `./build/snctl-cpp -h` to see the help message.
 
 ### Describe a topic
 
-```bash
-./build/snctl-cpp describe <topic>
-```
-
 Example outputs:
 
-```
+```bash
+$ ./build/snctl-cpp describe <topic>
 Partition[0] leader: { "id": "816909419, url: "pb0-<xxx>:9093"}"
 Partition[1] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[2] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[3] leader: { "id": "419689856, url: "pb1-<xxx>:9093"}"
-Partition[4] leader: { "id": "816909419, url: "pb0-<xxx>:9093"}"
-Partition[5] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[6] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[7] leader: { "id": "419689856, url: "pb1-<xxx>:9093"}"
-Partition[8] leader: { "id": "816909419, url: "pb0-<xxx>:9093"}"
-Partition[9] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[10] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[11] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}"
-Partition[12] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
-Partition[13] leader: { "id": "419689856, url: "pb1-<xxx>:9093"}"
-Partition[14] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
+...
 Partition[15] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}"
 ```
+
+You can add a `--client-id` option to specify the client id. In Ursa, the client id carries the zone information, see [here](https://docs.streamnative.io/docs/config-kafka-client#eliminate-cross-az-networking-traffic).
+
+```bash
+$ ./build/snctl-cpp describe <topic> --client-id zone_id=use1-az1
+Partition[0] leader: { "id": "1868363245, url: "pb5-<xxx>:9093"}
+Partition[1] leader: { "id": "1868363245, url: "pb5-<xxx>:9093"}
+...
+Partition[15] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}
+```
+
+As you can see, when a client specifies `use1-az1` as its zone, only brokers in the same zone (`pb2` and `pb5`) will serve the requests from that client.

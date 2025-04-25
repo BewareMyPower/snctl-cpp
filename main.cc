@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
   argparse::ArgumentParser describe_command("describe");
   describe_command.add_description("Describe a topic");
   describe_command.add_argument("topic").help("Topic to describe").required();
+  describe_command.add_argument("--client-id").help("client id");
 
   program.add_subparser(describe_command);
   program.parse_args(argc, argv);
@@ -22,7 +23,6 @@ int main(int argc, char *argv[]) {
   if (!program.is_subcommand_used(describe_command)) {
     throw std::runtime_error("Only describe command is supported");
   }
-  const auto topic = describe_command.get<std::string>("topic");
 
   CSimpleIni ini;
   if (auto rc = ini.LoadFile("sncloud.ini"); rc < 0) {
@@ -38,12 +38,16 @@ int main(int argc, char *argv[]) {
     return std::string(value);
   };
 
+  const auto topic = describe_command.get<std::string>("topic");
   std::unordered_map<std::string, std::string> rk_conf_map{
       {"bootstrap.servers", get_value("bootstrap.servers")},
       {"sasl.mechanism", "PLAIN"},
       {"security.protocol", "SASL_SSL"},
       {"sasl.username", "user"},
       {"sasl.password", "token:" + get_value("token")}};
+  if (auto client_id = describe_command.present("--client-id")) {
+    rk_conf_map["client.id"] = client_id.value();
+  }
   auto rk_conf = rd_kafka_conf_new();
 
   std::array<char, 512> errstr;
