@@ -22,9 +22,13 @@ You only need to fill the following fields in `sncloud.ini` (make sure this file
 
 Run `./build/snctl-cpp -h` to see the help message.
 
+Options:
+- Add the `--config <config-file>` option to specify a different path of the INI config file.
+- Add a `--client-id` option to specify the client id of the underlying Kafka client. In Ursa, the client id carries the zone information, see [here](https://docs.streamnative.io/docs/config-kafka-client#eliminate-cross-az-networking-traffic).
+
 ### Describe a topic
 
-Example outputs:
+Query the owner brokers for all partitions:
 
 ```bash
 $ ./build/snctl-cpp describe <topic>
@@ -34,7 +38,7 @@ Partition[1] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
 Partition[15] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}"
 ```
 
-You can add a `--client-id` option to specify the client id. In Ursa, the client id carries the zone information, see [here](https://docs.streamnative.io/docs/config-kafka-client#eliminate-cross-az-networking-traffic).
+Query the owner brokers for all partitions in a specific zone (`use1-az1` in this case):
 
 ```bash
 $ ./build/snctl-cpp describe <topic> --client-id zone_id=use1-az1
