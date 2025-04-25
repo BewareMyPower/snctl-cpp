@@ -1,0 +1,19 @@
+{
+  "name": "snctl-cpp",
+  "version": "0.1.0",
+  "description": "The CLI tool to manage clusters on StreamNative Cloud",
+  "builtin-baseline": "760bfd0c8d7c89ec640aec4df89418b7c2745605",
+  "dependencies": [
+    {
+      "name": "librdkafka",
+      "features": [
+        "ssl"
+      ],
+      "version>=": "2.8.0"
+    },
+    {
+      "name": "simpleini",
+      "version>=": "4.22"
+    }
+  ]
+}
