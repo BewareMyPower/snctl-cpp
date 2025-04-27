@@ -41,7 +41,7 @@ Partition[15] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}"
 Query the owner brokers for all partitions in a specific zone (`use1-az1` in this case):
 
 ```bash
-$ ./build/snctl-cpp describe <topic> --client-id zone_id=use1-az1
+$ ./build/snctl-cpp --client-id zone_id=use1-az1 describe <topic>
 Partition[0] leader: { "id": "1868363245, url: "pb5-<xxx>:9093"}
 Partition[1] leader: { "id": "1868363245, url: "pb5-<xxx>:9093"}
 ...
