@@ -1,5 +1,6 @@
 #include "common.h"
 #include "describe_topic.h"
+#include "list_topics.h"
 #include <argparse/argparse.hpp>
 #include <array>
 #include <librdkafka/rdkafka.h>
@@ -9,7 +10,8 @@
 #include <type_traits>
 
 int main(int argc, char *argv[]) {
-  argparse::ArgumentParser program("snctl-cpp");
+  const auto version = "0.1.0";
+  argparse::ArgumentParser program("snctl-cpp", version);
   program.add_argument("--config")
       .default_value("sncloud.ini")
       .help("Path to the config file");
@@ -18,8 +20,12 @@ int main(int argc, char *argv[]) {
   argparse::ArgumentParser describe_command("describe");
   describe_command.add_description("Describe a topic");
   describe_command.add_argument("topic").help("Topic to describe").required();
-
   program.add_subparser(describe_command);
+
+  argparse::ArgumentParser list_command("list");
+  list_command.add_description("List topics");
+  program.add_subparser(list_command);
+
   program.parse_args(argc, argv);
 
   auto rk_conf = rd_kafka_conf_new();
@@ -51,16 +57,11 @@ int main(int argc, char *argv[]) {
                   decltype(&rd_kafka_queue_destroy)>
       rkque_guard{rkqu, &rd_kafka_queue_destroy};
 
-  const auto topic = describe_command.get("topic");
-  const char *topics[] = {topic.c_str()};
-  auto topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
-  std::unique_ptr<std::remove_reference_t<decltype(*topic_names)>,
-                  decltype(&rd_kafka_TopicCollection_destroy)>
-      topic_names_guard{topic_names, &rd_kafka_TopicCollection_destroy};
-
   if (program.is_subcommand_used(describe_command)) {
     DescribeTopicCommand command{rk, rkqu, describe_command};
     command.run();
+  } else if (program.is_subcommand_used(list_command)) {
+    list_topics(rk);
   } else {
     throw std::runtime_error("Only describe command is supported");
   }

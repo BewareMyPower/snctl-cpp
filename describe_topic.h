@@ -21,6 +21,9 @@ private:
 inline void DescribeTopicCommand::run() {
   const char *topics[] = {topic_.c_str()};
   auto topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
+  std::unique_ptr<std::remove_reference_t<decltype(*topic_names)>,
+                  decltype(&rd_kafka_TopicCollection_destroy)>
+      topic_names_guard{topic_names, &rd_kafka_TopicCollection_destroy};
 
   rd_kafka_DescribeTopics(rk_, topic_names, nullptr, rk_queue_);
 
@@ -52,7 +55,7 @@ inline void DescribeTopicCommand::run() {
         auto leader = rd_kafka_TopicPartitionInfo_leader(result_partition);
         if (leader) {
           std::cout << "Partition[" << i << "] "
-                    << R"(leader: { "id": ")" << rd_kafka_Node_id(leader)
+                    << R"(leader: {"id": )" << rd_kafka_Node_id(leader)
                     << R"(, url: ")" << rd_kafka_Node_host(leader) << ':'
                     << rd_kafka_Node_port(leader) << R"("})" << std::endl;
         } else {

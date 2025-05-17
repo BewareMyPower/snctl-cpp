@@ -32,20 +32,31 @@ Query the owner brokers for all partitions:
 
 ```bash
 $ ./build/snctl-cpp describe <topic>
-Partition[0] leader: { "id": "816909419, url: "pb0-<xxx>:9093"}"
-Partition[1] leader: { "id": "101337027, url: "pb4-<xxx>:9093"}"
+Partition[0] leader: {"id": 816909419, url: "pb0-<xxx>:9093"}"
+Partition[1] leader: {"id": 101337027, url: "pb4-<xxx>:9093"}"
 ...
-Partition[15] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}"
+Partition[15] leader: {"id": 644587507, url: "pb2-<xxx>:9093"}"
 ```
 
 Query the owner brokers for all partitions in a specific zone (`use1-az1` in this case):
 
 ```bash
 $ ./build/snctl-cpp --client-id zone_id=use1-az1 describe <topic>
-Partition[0] leader: { "id": "1868363245, url: "pb5-<xxx>:9093"}
-Partition[1] leader: { "id": "1868363245, url: "pb5-<xxx>:9093"}
+Partition[0] leader: {"id": 1868363245, url: "pb5-<xxx>:9093"}
+Partition[1] leader: {"id": 1868363245, url: "pb5-<xxx>:9093"}
 ...
-Partition[15] leader: { "id": "644587507, url: "pb2-<xxx>:9093"}
+Partition[15] leader: {"id": 644587507, url: "pb2-<xxx>:9093"}
 ```
 
 As you can see, when a client specifies `use1-az1` as its zone, only brokers in the same zone (`pb2` and `pb5`) will serve the requests from that client.
+
+### List topics
+
+List all topics and print the number of partitions for each topic:
+
+```bash
+$ ./build/snctl-cpp list
+topic count: 2
+[0] "my-topic-2" with 1 partition
+[1] "my-topic-1" with 10 partitions
+```
