@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "rk_event_wrapper.h"
 #include <iostream>
 #include <librdkafka/rdkafka.h>
 #include <memory>
@@ -31,12 +32,9 @@ inline void delete_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
 
   rd_kafka_DeleteTopics(rk, &rk_topic, 1, nullptr, rkqu);
 
-  if (auto event = rd_kafka_queue_poll(rkqu, -1 /* infinite timeout */);
-      rd_kafka_event_error(event)) {
-    std::cerr << "DeleteTopics failed for " << topic << ": "
-              << rd_kafka_event_error_string(event);
-  } else {
-    auto result = rd_kafka_event_DeleteTopics_result(event);
+  try {
+    auto event = RdKafkaEvent::poll(rk, rkqu);
+    auto result = rd_kafka_event_DeleteTopics_result(event.handle());
     size_t cntp;
     auto topics = rd_kafka_DeleteTopics_result_topics(result, &cntp);
     if (cntp != 1) {
@@ -50,5 +48,8 @@ inline void delete_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
       std::cerr << R"(Failed to delete topic ")" << topic << R"(": )" << error
                 << std::endl;
     }
+  } catch (const std::runtime_error &e) {
+    std::cerr << "DeleteTopics failed for " << topic << ": " << e.what()
+              << std::endl;
   }
 }

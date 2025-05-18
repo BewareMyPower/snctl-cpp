@@ -15,9 +15,10 @@
  */
 #pragma once
 
-#include <argparse/argparse.hpp>
+#include "rk_event_wrapper.h"
 #include <iostream>
 #include <librdkafka/rdkafka.h>
+#include <stdexcept>
 #include <string>
 
 inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
@@ -30,12 +31,9 @@ inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
 
   rd_kafka_DescribeTopics(rk, topic_names, nullptr, rkqu);
 
-  if (auto event = rd_kafka_queue_poll(rkqu, -1 /* infinite timeout */);
-      rd_kafka_event_error(event)) {
-    std::cerr << "DescribeTopics failed for " << topic << ": "
-              << rd_kafka_event_error_string(event);
-  } else {
-    auto result = rd_kafka_event_DescribeTopics_result(event);
+  try {
+    auto event = RdKafkaEvent::poll(rk, rkqu);
+    auto result = rd_kafka_event_DescribeTopics_result(event.handle());
     size_t result_topics_cnt;
     auto result_topics =
         rd_kafka_DescribeTopics_result_topics(result, &result_topics_cnt);
@@ -66,5 +64,8 @@ inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
         }
       }
     }
+  } catch (const std::runtime_error &e) {
+    std::cerr << "DescribeTopics failed for " << topic << ": " << e.what()
+              << std::endl;
   }
 }

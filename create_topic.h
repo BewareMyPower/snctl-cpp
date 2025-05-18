@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "rk_event_wrapper.h"
 #include <array>
 #include <iostream>
 #include <librdkafka/rdkafka.h>
@@ -38,12 +39,12 @@ inline void create_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
 
   rd_kafka_CreateTopics(rk, &rk_topic, 1, nullptr, rkqu);
 
-  if (auto event = rd_kafka_queue_poll(rkqu, -1 /* infinite timeout */);
-      rd_kafka_event_error(event)) {
-    std::cerr << "CreateTopics failed for " << topic << ": "
-              << rd_kafka_event_error_string(event);
-  } else {
+  try {
+    RdKafkaEvent::poll(rk, rkqu);
     std::cout << R"(Created topic ")" << topic << R"(" with )" << num_partitions
               << " partition" << (num_partitions == 1 ? "" : "s") << std::endl;
+  } catch (const std::runtime_error &e) {
+    std::cerr << "CreateTopics failed for " << topic << ": " << e.what();
+    return;
   }
 }
