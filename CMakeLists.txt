@@ -24,6 +24,9 @@ if (NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 17)
 endif ()
 
+file(READ version.txt VERSION_STR)
+string(STRIP ${VERSION_STR} VERSION_STR)
+
 find_path(SIMPLEINI_INCLUDE_DIRS "ConvertUTF.c")
 if (SIMPLEINI_INCLUDE_DIRS)
     message(STATUS "SIMPLEINI_INCLUDE_DIRS: ${SIMPLEINI_INCLUDE_DIRS}")
@@ -36,4 +39,5 @@ find_package(RdKafka CONFIG REQUIRED)
 find_package(argparse CONFIG REQUIRED)
 
 add_executable(snctl-cpp main.cc)
+target_compile_definitions(snctl-cpp PUBLIC VERSION_STR="${VERSION_STR}")
 target_link_libraries(snctl-cpp PRIVATE argparse::argparse RdKafka::rdkafka)

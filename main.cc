@@ -32,14 +32,18 @@
 #include <vector>
 
 int main(int argc, char *argv[]) {
-  const auto version = "0.1.0";
-
   std::vector<std::string> default_config_paths{
       std::filesystem::current_path() / "sncloud.ini",
       std::filesystem::path(std::getenv("HOME")) / ".snctl-cpp" /
           "sncloud.ini"};
 
-  argparse::ArgumentParser program("snctl-cpp", version);
+  argparse::ArgumentParser program("snctl-cpp",
+#ifdef VERSION_STR
+                                   VERSION_STR
+#else
+                                   "unknown"
+#endif
+  );
   program.add_argument("--config")
       .default_value(default_config_paths)
       .help("Path to the config file");
