@@ -35,6 +35,15 @@ $ ./build/snctl-cpp create tp1 -p 5
 Created topic "tp1" with 5 partitions
 ```
 
+### Delete a topic
+
+```bash
+$ ./build/snctl-cpp delete tp
+Failed to delete topic "tp": Broker: Unknown topic or partition
+$ ./build/snctl-cpp delete tp0
+Deleted topic "tp0"
+```
+
 ### Describe a topic
 
 Query the owner brokers for all partitions:

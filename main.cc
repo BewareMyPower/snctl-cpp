@@ -15,6 +15,7 @@
  */
 #include "common.h"
 #include "create_topic.h"
+#include "delete_topic.h"
 #include "describe_topic.h"
 #include "list_topics.h"
 #include <argparse/argparse.hpp>
@@ -50,6 +51,11 @@ int main(int argc, char *argv[]) {
       .scan<'i', int>()
       .default_value(1);
   program.add_subparser(create_command);
+
+  argparse::ArgumentParser delete_command("delete");
+  delete_command.add_description("Delete a topic");
+  delete_command.add_argument("topic").help("Topic to delete").required();
+  program.add_subparser(delete_command);
 
   program.parse_args(argc, argv);
 
@@ -94,6 +100,9 @@ int main(int argc, char *argv[]) {
           "Number of partitions must be greater than or equal to 0");
     }
     create_topic(rk, rkqu, topic, partitions);
+  } else if (program.is_subcommand_used(delete_command)) {
+    auto topic = delete_command.get("topic");
+    delete_topic(rk, rkqu, topic);
   } else {
     throw std::runtime_error("Only describe command is supported");
   }
