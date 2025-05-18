@@ -20,18 +20,27 @@
 #include "list_topics.h"
 #include <argparse/argparse.hpp>
 #include <array>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <librdkafka/rdkafka.h>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 int main(int argc, char *argv[]) {
   const auto version = "0.1.0";
+
+  std::vector<std::string> default_config_paths{
+      std::filesystem::current_path() / "sncloud.ini",
+      std::filesystem::path(std::getenv("HOME")) / ".snctl-cpp" /
+          "sncloud.ini"};
+
   argparse::ArgumentParser program("snctl-cpp", version);
   program.add_argument("--config")
-      .default_value("sncloud.ini")
+      .default_value(default_config_paths)
       .help("Path to the config file");
   program.add_argument("--client-id").help("client id");
 
@@ -67,11 +76,22 @@ int main(int argc, char *argv[]) {
     throw std::runtime_error("Failed to " + action + ": " + errstr.data());
   };
 
-  const auto config_file = program.get("--config");
+  const auto config_files = program.get<std::vector<std::string>>("--config");
   CSimpleIni ini;
-  if (auto rc = ini.LoadFile(config_file.c_str()); rc < 0) {
-    throw std::runtime_error("Error loading config file " + config_file);
+  bool loaded = false;
+  for (auto &&config_file : config_files) {
+    if (std::filesystem::exists(config_file)) {
+      if (auto rc = ini.LoadFile(config_file.c_str()); rc < 0) {
+        throw std::runtime_error("Error loading config file " + config_file);
+      }
+      loaded = true;
+      break;
+    }
   }
+  if (!loaded) {
+    throw std::runtime_error("No config file found");
+  }
+
   auto get_value = [&ini](const auto &key, bool required) {
     auto value = ini.GetValue("kafka", key, "");
     if (strlen(value) == 0 && required) {
@@ -112,7 +132,6 @@ int main(int argc, char *argv[]) {
       rd_kafka_conf_set_opaque(rk_conf, stdout);
     } else {
       file.reset(fopen(log_file, "a"));
-      std::cout << "Opened log file " << log_file << std::endl;
       rd_kafka_conf_set_opaque(rk_conf, file.get());
       rd_kafka_conf_set_log_cb(
           rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
