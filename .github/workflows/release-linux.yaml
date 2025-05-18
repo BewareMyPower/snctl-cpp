@@ -18,10 +18,6 @@ on:
   push:
     tags:
       - 'v*'
-  # TODO: remove the following condition
-  pull_request:
-    branches:
-      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
