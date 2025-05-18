@@ -83,8 +83,7 @@ int main(int argc, char *argv[]) {
       rkque_guard{rkqu, &rd_kafka_queue_destroy};
 
   if (program.is_subcommand_used(describe_command)) {
-    DescribeTopicCommand command{rk, rkqu, describe_command};
-    command.run();
+    describe_topic(rk, rkqu, describe_command.get("topic"));
   } else if (program.is_subcommand_used(list_command)) {
     list_topics(rk);
   } else if (program.is_subcommand_used(create_command)) {

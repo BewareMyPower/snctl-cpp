@@ -18,33 +18,21 @@
 #include <argparse/argparse.hpp>
 #include <iostream>
 #include <librdkafka/rdkafka.h>
+#include <string>
 
-class DescribeTopicCommand {
-public:
-  DescribeTopicCommand(rd_kafka_t *rk, rd_kafka_queue_t *rk_queue,
-                       argparse::ArgumentParser &parser)
-      : rk_(rk), rk_queue_(rk_queue), topic_(parser.get("topic")) {}
-
-  void run();
-
-private:
-  rd_kafka_t *const rk_;
-  rd_kafka_queue_t *const rk_queue_;
-  const std::string topic_;
-};
-
-inline void DescribeTopicCommand::run() {
-  const char *topics[] = {topic_.c_str()};
+inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
+                           const std::string &topic) {
+  const char *topics[] = {topic.c_str()};
   auto topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
   std::unique_ptr<std::remove_reference_t<decltype(*topic_names)>,
                   decltype(&rd_kafka_TopicCollection_destroy)>
       topic_names_guard{topic_names, &rd_kafka_TopicCollection_destroy};
 
-  rd_kafka_DescribeTopics(rk_, topic_names, nullptr, rk_queue_);
+  rd_kafka_DescribeTopics(rk, topic_names, nullptr, rkqu);
 
-  if (auto event = rd_kafka_queue_poll(rk_queue_, -1 /* infinite timeout */);
+  if (auto event = rd_kafka_queue_poll(rkqu, -1 /* infinite timeout */);
       rd_kafka_event_error(event)) {
-    std::cerr << "DescribeTopics failed for " << topic_ << ": "
+    std::cerr << "DescribeTopics failed for " << topic << ": "
               << rd_kafka_event_error_string(event);
   } else {
     auto result = rd_kafka_event_DescribeTopics_result(event);
