@@ -16,9 +16,7 @@
 set -e
 
 cd /app
-if [ $ARCH == "arm64" ]; then
-    export VCPKG_FORCE_SYSTEM_BINARIES=1
-fi
+export VCPKG_FORCE_SYSTEM_BINARIES=1
 ./vcpkg/bootstrap-vcpkg.sh
 cmake -B build-$ARCH
 cmake --build build-$ARCH
