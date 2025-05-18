@@ -20,6 +20,7 @@
 #include "list_topics.h"
 #include <argparse/argparse.hpp>
 #include <array>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -138,6 +139,7 @@ int main(int argc, char *argv[]) {
                        const char *buf) {
             auto file = static_cast<FILE *>(rd_kafka_opaque(rk));
             fprintf(file, "[%d] %s: %s\n", level, fac, buf);
+            fflush(file);
           });
     }
   }
