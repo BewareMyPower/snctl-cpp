@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "common.h"
+#include "SimpleIni.h"
 #include "create_topic.h"
 #include "delete_topic.h"
 #include "describe_topic.h"
 #include "list_topics.h"
 #include <argparse/argparse.hpp>
 #include <array>
+#include <cstring>
 #include <librdkafka/rdkafka.h>
 #include <memory>
 #include <stdexcept>
@@ -66,11 +67,59 @@ int main(int argc, char *argv[]) {
     throw std::runtime_error("Failed to " + action + ": " + errstr.data());
   };
 
-  auto rk_conf_map = load_rdkafka_configs(program);
+  const auto config_file = program.get("--config");
+  CSimpleIni ini;
+  if (auto rc = ini.LoadFile(config_file.c_str()); rc < 0) {
+    throw std::runtime_error("Error loading config file " + config_file);
+  }
+  auto get_value = [&ini](const auto &key, bool required) {
+    auto value = ini.GetValue("kafka", key, "");
+    if (strlen(value) == 0 && required) {
+      throw std::runtime_error("Error: " + std::string(key) +
+                               " not found in kafka section");
+    }
+    return std::string(value);
+  };
+
+  std::unordered_map<std::string, std::string> rk_conf_map{
+      {"bootstrap.servers", get_value("bootstrap.servers", true)}};
+  if (auto token = get_value("token", false); !token.empty()) {
+    rk_conf_map["sasl.mechanism"] = "PLAIN";
+    rk_conf_map["security.protocol"] = "SASL_SSL";
+    rk_conf_map["sasl.username"] = "user";
+    rk_conf_map["sasl.password"] = "token:" + token;
+  }
+  if (auto client_id = program.present("--client-id")) {
+    rk_conf_map["client.id"] = client_id.value();
+  }
   for (auto &&[key, value] : rk_conf_map) {
     if (rd_kafka_conf_set(rk_conf, key.c_str(), value.c_str(), errstr.data(),
                           errstr.size()) != RD_KAFKA_CONF_OK) {
       fail("set " + key + " => " + value);
+    }
+  }
+
+  std::unique_ptr<FILE, decltype(&fclose)> file{nullptr, &fclose};
+  if (auto log_enabled = ini.GetValue("log", "enabled", "false");
+      std::string(log_enabled) == "false") {
+    // Disable logging in rdkafka
+    rd_kafka_conf_set_log_cb(
+        rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
+                     const char *buf) {});
+  } else {
+    if (auto log_file = ini.GetValue("log", "path", "");
+        strlen(log_file) == 0) {
+      rd_kafka_conf_set_opaque(rk_conf, stdout);
+    } else {
+      file.reset(fopen(log_file, "a"));
+      std::cout << "Opened log file " << log_file << std::endl;
+      rd_kafka_conf_set_opaque(rk_conf, file.get());
+      rd_kafka_conf_set_log_cb(
+          rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
+                       const char *buf) {
+            auto file = static_cast<FILE *>(rd_kafka_opaque(rk));
+            fprintf(file, "[%d] %s: %s\n", level, fac, buf);
+          });
     }
   }
 

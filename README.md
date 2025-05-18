@@ -78,3 +78,15 @@ topic count: 2
 [0] "my-topic-2" with 1 partition
 [1] "my-topic-1" with 10 partitions
 ```
+
+## Logging
+
+By default, rdkafka will generate logs to the standard output. `snctl-cpp` can redirect the logs to a file. For example, with the following configs in `sncloud.ini`:
+
+```toml
+[log]
+enabled = true
+path = /tmp/rdkafka.log
+```
+
+The logs will be appended to the `/tmp/rdkafka.log` file. If you don't want to generate any log from rdkafka, you can configure `enabled` with `false`.
