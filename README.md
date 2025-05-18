@@ -26,6 +26,15 @@ Options:
 - Add the `--config <config-file>` option to specify a different path of the INI config file.
 - Add a `--client-id` option to specify the client id of the underlying Kafka client. In Ursa, the client id carries the zone information, see [here](https://docs.streamnative.io/docs/config-kafka-client#eliminate-cross-az-networking-traffic).
 
+### Create a topic
+
+```bash
+$ ./build/snctl-cpp create tp0
+Created topic "tp0" with 1 partition
+$ ./build/snctl-cpp create tp1 -p 5
+Created topic "tp1" with 5 partitions
+```
+
 ### Describe a topic
 
 Query the owner brokers for all partitions:

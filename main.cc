@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "common.h"
+#include "create_topic.h"
 #include "describe_topic.h"
 #include "list_topics.h"
 #include <argparse/argparse.hpp>
@@ -40,6 +41,15 @@ int main(int argc, char *argv[]) {
   argparse::ArgumentParser list_command("list");
   list_command.add_description("List topics");
   program.add_subparser(list_command);
+
+  argparse::ArgumentParser create_command("create");
+  create_command.add_description("Create a topic");
+  create_command.add_argument("topic").help("Topic to create").required();
+  create_command.add_argument("-p")
+      .help("Number of partitions")
+      .scan<'i', int>()
+      .default_value(1);
+  program.add_subparser(create_command);
 
   program.parse_args(argc, argv);
 
@@ -77,6 +87,14 @@ int main(int argc, char *argv[]) {
     command.run();
   } else if (program.is_subcommand_used(list_command)) {
     list_topics(rk);
+  } else if (program.is_subcommand_used(create_command)) {
+    auto topic = create_command.get("topic");
+    auto partitions = create_command.get<int>("-p");
+    if (partitions < 0) {
+      throw std::invalid_argument(
+          "Number of partitions must be greater than or equal to 0");
+    }
+    create_topic(rk, rkqu, topic, partitions);
   } else {
     throw std::runtime_error("Only describe command is supported");
   }
