@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/rk_event_wrapper.h"
 #include <array>
 #include <iostream>
@@ -33,9 +34,7 @@ inline void create_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
     throw std::runtime_error("Failed to create topic: " +
                              std::string(errstr.data()));
   }
-  std::unique_ptr<std::remove_reference_t<decltype(*rk_topic)>,
-                  decltype(&rd_kafka_NewTopic_destroy)>
-      rk_topic_guard{rk_topic, &rd_kafka_NewTopic_destroy};
+  GUARD(rk_topic, rd_kafka_NewTopic_destroy);
 
   rd_kafka_CreateTopics(rk, &rk_topic, 1, nullptr, rkqu);
 

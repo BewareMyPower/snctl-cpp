@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/rk_event_wrapper.h"
 #include <iostream>
 #include <librdkafka/rdkafka.h>
@@ -26,9 +27,7 @@
 inline void delete_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                          const std::string &topic) {
   auto rk_topic = rd_kafka_DeleteTopic_new(topic.c_str());
-  std::unique_ptr<std::remove_reference_t<decltype(*rk_topic)>,
-                  decltype(&rd_kafka_DeleteTopic_destroy)>
-      rk_topic_guard{rk_topic, &rd_kafka_DeleteTopic_destroy};
+  GUARD(rk_topic, rd_kafka_DeleteTopic_destroy);
 
   rd_kafka_DeleteTopics(rk, &rk_topic, 1, nullptr, rkqu);
 

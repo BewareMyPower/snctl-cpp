@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/topics.h"
 
 int main(int argc, char *argv[]) {
@@ -137,14 +138,10 @@ int main(int argc, char *argv[]) {
   if (!rk) {
     fail("create producer");
   }
-  std::unique_ptr<std::remove_reference_t<decltype(*rk)>,
-                  decltype(&rd_kafka_destroy)>
-      rk_guard{rk, &rd_kafka_destroy};
+  GUARD(rk, rd_kafka_destroy);
 
   auto rkqu = rd_kafka_queue_new(rk);
-  std::unique_ptr<std::remove_reference_t<decltype(*rkqu)>,
-                  decltype(&rd_kafka_queue_destroy)>
-      rkque_guard{rkqu, &rd_kafka_queue_destroy};
+  GUARD(rkqu, rd_kafka_queue_destroy);
 
   if (program.is_subcommand_used(topics.handle())) {
     return topics.run(rk, rkqu) ? 0 : 1;

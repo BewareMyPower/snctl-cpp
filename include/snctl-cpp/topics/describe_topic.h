@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/rk_event_wrapper.h"
 #include <iostream>
 #include <librdkafka/rdkafka.h>
@@ -25,9 +26,7 @@ inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                            const std::string &topic) {
   const char *topics[] = {topic.c_str()};
   auto topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
-  std::unique_ptr<std::remove_reference_t<decltype(*topic_names)>,
-                  decltype(&rd_kafka_TopicCollection_destroy)>
-      topic_names_guard{topic_names, &rd_kafka_TopicCollection_destroy};
+  GUARD(topic_names, rd_kafka_TopicCollection_destroy);
 
   rd_kafka_DescribeTopics(rk, topic_names, nullptr, rkqu);
 
