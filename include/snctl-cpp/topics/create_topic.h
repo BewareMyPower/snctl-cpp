@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "rk_event_wrapper.h"
+#include "snctl-cpp/rk_event_wrapper.h"
 #include <array>
 #include <iostream>
 #include <librdkafka/rdkafka.h>

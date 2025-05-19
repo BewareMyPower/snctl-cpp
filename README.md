@@ -6,7 +6,9 @@ The CLI tool to manage clusters on StreamNative Cloud.
 
 ### (Recommended) Use pre-built binaries
 
-Currently the release only supports macOS 14 or later with arm64 architecture.
+Currently the release only supports
+- macOS 14 or later: arm64 architecture only
+- Alpine Linux 3.21 or later: amd64 or amd64 architecture
 
 Take v0.1.0 for example:
 
@@ -25,6 +27,10 @@ export PATH=$HOME/.snctl-cpp:$PATH
 
 Now, you can run `snctl-cpp -h` to see the help message.
 
+> **NOTE**:
+>
+> Actually running `./install.sh` is not necessary. You can run `./snctl-cpp` directly in the uncompressed directory because `sncloud.ini` is in the same directory.
+
 ### Build from source
 
 You must have a C++ compiler that supports C++17.
@@ -38,7 +44,7 @@ cp build/snctl-cpp .
 
 You can run `./install.sh` to override the existing installation in `~/.snctl-cpp` directory, but you can also just run `./snctl-cpp` directly without installing it. The `sncloud.ini` file in the current working directory has higher priority than the one in `~/.snctl-cpp` directory.
 
-## How to manage topics in the cluster that enables Kafka protocol
+## Configuration
 
 **Please make sure the `sncloud.ini` file is in the current working directory or `~/.snctl-cpp` directory if you don't specify the `--config` option.**
 
@@ -50,21 +56,25 @@ Options:
 - Add the `--config <config-file>` option to specify a different path of the INI config file.
 - Add a `--client-id` option to specify the client id of the underlying Kafka client. In Ursa, the client id carries the zone information, see [here](https://docs.streamnative.io/docs/config-kafka-client#eliminate-cross-az-networking-traffic).
 
+The built-in `sncloud.ini` file specifies `localhost:9092` as the default bootstrap server. You can also test `snctl-cpp` against a local Kafka cluster.
+
+## Commands
+
 ### Create a topic
 
 ```bash
-$ snctl-cpp create tp0
+$ snctl-cpp topics create tp0
 Created topic "tp0" with 1 partition
-$ snctl-cpp create tp1 -p 5
+$ snctl-cpp topics create tp1 -p 5
 Created topic "tp1" with 5 partitions
 ```
 
 ### Delete a topic
 
 ```bash
-$ snctl-cpp delete tp
+$ snctl-cpp topics delete tp
 Failed to delete topic "tp": Broker: Unknown topic or partition
-$ snctl-cpp delete tp0
+$ snctl-cpp topics delete tp0
 Deleted topic "tp0"
 ```
 
@@ -73,7 +83,7 @@ Deleted topic "tp0"
 Query the owner brokers for all partitions:
 
 ```bash
-$ snctl-cpp describe <topic>
+$ snctl-cpp topics describe <topic>
 Partition[0] leader: {"id": 816909419, url: "pb0-<xxx>:9093"}"
 Partition[1] leader: {"id": 101337027, url: "pb4-<xxx>:9093"}"
 ...
@@ -83,7 +93,7 @@ Partition[15] leader: {"id": 644587507, url: "pb2-<xxx>:9093"}"
 Query the owner brokers for all partitions in a specific zone (`use1-az1` in this case):
 
 ```bash
-$ snctl-cpp --client-id zone_id=use1-az1 describe <topic>
+$ snctl-cpp --client-id zone_id=use1-az1 topics describe <topic>
 Partition[0] leader: {"id": 1868363245, url: "pb5-<xxx>:9093"}
 Partition[1] leader: {"id": 1868363245, url: "pb5-<xxx>:9093"}
 ...
@@ -97,7 +107,7 @@ As you can see, when a client specifies `use1-az1` as its zone, only brokers in 
 List all topics and print the number of partitions for each topic:
 
 ```bash
-$ snctl-cpp list
+$ snctl-cpp topics list
 topic count: 2
 [0] "my-topic-2" with 1 partition
 [1] "my-topic-1" with 10 partitions

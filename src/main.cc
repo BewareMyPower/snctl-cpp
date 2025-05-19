@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 #include "SimpleIni.h"
-#include "create_topic.h"
-#include "delete_topic.h"
-#include "describe_topic.h"
-#include "list_topics.h"
 #include <argparse/argparse.hpp>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <filesystem>
+#include <iostream>
 #include <librdkafka/rdkafka.h>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
+
+#include "snctl-cpp/topics.h"
 
 int main(int argc, char *argv[]) {
   std::vector<std::string> default_config_paths{
@@ -49,30 +49,14 @@ int main(int argc, char *argv[]) {
       .help("Path to the config file");
   program.add_argument("--client-id").help("client id");
 
-  argparse::ArgumentParser describe_command("describe");
-  describe_command.add_description("Describe a topic");
-  describe_command.add_argument("topic").help("Topic to describe").required();
-  program.add_subparser(describe_command);
-
-  argparse::ArgumentParser list_command("list");
-  list_command.add_description("List topics");
-  program.add_subparser(list_command);
-
-  argparse::ArgumentParser create_command("create");
-  create_command.add_description("Create a topic");
-  create_command.add_argument("topic").help("Topic to create").required();
-  create_command.add_argument("-p")
-      .help("Number of partitions")
-      .scan<'i', int>()
-      .default_value(1);
-  program.add_subparser(create_command);
-
-  argparse::ArgumentParser delete_command("delete");
-  delete_command.add_description("Delete a topic");
-  delete_command.add_argument("topic").help("Topic to delete").required();
-  program.add_subparser(delete_command);
-
-  program.parse_args(argc, argv);
+  Topics topics{program};
+  try {
+    program.parse_args(argc, argv);
+  } catch (const std::exception &err) {
+    std::cerr << "Failed to parse args: " << err.what() << "\n"
+              << program << std::endl;
+    return 1;
+  }
 
   auto rk_conf = rd_kafka_conf_new();
 
@@ -162,23 +146,11 @@ int main(int argc, char *argv[]) {
                   decltype(&rd_kafka_queue_destroy)>
       rkque_guard{rkqu, &rd_kafka_queue_destroy};
 
-  if (program.is_subcommand_used(describe_command)) {
-    describe_topic(rk, rkqu, describe_command.get("topic"));
-  } else if (program.is_subcommand_used(list_command)) {
-    list_topics(rk);
-  } else if (program.is_subcommand_used(create_command)) {
-    auto topic = create_command.get("topic");
-    auto partitions = create_command.get<int>("-p");
-    if (partitions < 0) {
-      throw std::invalid_argument(
-          "Number of partitions must be greater than or equal to 0");
-    }
-    create_topic(rk, rkqu, topic, partitions);
-  } else if (program.is_subcommand_used(delete_command)) {
-    auto topic = delete_command.get("topic");
-    delete_topic(rk, rkqu, topic);
+  if (program.is_subcommand_used(topics.handle())) {
+    topics.run(rk, rkqu);
   } else {
-    throw std::runtime_error("Only describe command is supported");
+    std::cerr << "Invalid subcommand\n" << program << std::endl;
+    return 1;
   }
 
   return 0;
