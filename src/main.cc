@@ -147,11 +147,9 @@ int main(int argc, char *argv[]) {
       rkque_guard{rkqu, &rd_kafka_queue_destroy};
 
   if (program.is_subcommand_used(topics.handle())) {
-    topics.run(rk, rkqu);
+    return topics.run(rk, rkqu) ? 0 : 1;
   } else {
     std::cerr << "Invalid subcommand\n" << program << std::endl;
     return 1;
   }
-
-  return 0;
 }
