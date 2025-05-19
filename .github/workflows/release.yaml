@@ -49,7 +49,4 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: snctl-cpp-macos-14-arm64
-          path: |
-            snctl-cpp
-            sncloud.ini
-            install.sh
+          path: snctl-cpp

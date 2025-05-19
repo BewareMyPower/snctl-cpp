@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "SimpleIni.h"
 #include <argparse/argparse.hpp>
 #include <array>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <iostream>
@@ -29,6 +27,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "snctl-cpp/configs.h"
 #include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/topics.h"
 
@@ -48,9 +47,14 @@ int main(int argc, char *argv[]) {
   program.add_argument("--config")
       .default_value(default_config_paths)
       .help("Path to the config file");
+  program.add_argument("--get-config")
+      .default_value(false)
+      .implicit_value(true)
+      .help("Get the config file path");
   program.add_argument("--client-id").help("client id");
 
   Topics topics{program};
+  Configs configs{program};
   try {
     program.parse_args(argc, argv);
   } catch (const std::exception &err) {
@@ -66,34 +70,11 @@ int main(int argc, char *argv[]) {
     throw std::runtime_error("Failed to " + action + ": " + errstr.data());
   };
 
-  const auto config_files = program.get<std::vector<std::string>>("--config");
-  CSimpleIni ini;
-  bool loaded = false;
-  for (auto &&config_file : config_files) {
-    if (std::filesystem::exists(config_file)) {
-      if (auto rc = ini.LoadFile(config_file.c_str()); rc < 0) {
-        throw std::runtime_error("Error loading config file " + config_file);
-      }
-      loaded = true;
-      break;
-    }
-  }
-  if (!loaded) {
-    throw std::runtime_error("No config file found");
-  }
-
-  auto get_value = [&ini](const auto &key, bool required) {
-    auto value = ini.GetValue("kafka", key, "");
-    if (strlen(value) == 0 && required) {
-      throw std::runtime_error("Error: " + std::string(key) +
-                               " not found in kafka section");
-    }
-    return std::string(value);
-  };
-
+  configs.init(program);
   std::unordered_map<std::string, std::string> rk_conf_map{
-      {"bootstrap.servers", get_value("bootstrap.servers", true)}};
-  if (auto token = get_value("token", false); !token.empty()) {
+      {"bootstrap.servers", configs.kafka_configs().bootstrap_servers}};
+
+  if (const auto &token = configs.kafka_configs().token; !token.empty()) {
     rk_conf_map["sasl.mechanism"] = "PLAIN";
     rk_conf_map["security.protocol"] = "SASL_SSL";
     rk_conf_map["sasl.username"] = "user";
@@ -110,18 +91,11 @@ int main(int argc, char *argv[]) {
   }
 
   std::unique_ptr<FILE, decltype(&fclose)> file{nullptr, &fclose};
-  if (auto log_enabled = ini.GetValue("log", "enabled", "false");
-      std::string(log_enabled) == "false") {
-    // Disable logging in rdkafka
-    rd_kafka_conf_set_log_cb(
-        rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
-                     const char *buf) {});
-  } else {
-    if (auto log_file = ini.GetValue("log", "path", "");
-        strlen(log_file) == 0) {
+  if (configs.log_configs().enabled) {
+    if (const auto &log_file = configs.log_configs().path; log_file.empty()) {
       rd_kafka_conf_set_opaque(rk_conf, stdout);
     } else {
-      file.reset(fopen(log_file, "a"));
+      file.reset(fopen(log_file.c_str(), "a"));
       rd_kafka_conf_set_opaque(rk_conf, file.get());
       rd_kafka_conf_set_log_cb(
           rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
@@ -131,6 +105,10 @@ int main(int argc, char *argv[]) {
             fflush(file);
           });
     }
+  } else { // Disable logging in rdkafka
+    rd_kafka_conf_set_log_cb(
+        rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
+                     const char *buf) {});
   }
 
   auto rk =
@@ -143,10 +121,27 @@ int main(int argc, char *argv[]) {
   auto rkqu = rd_kafka_queue_new(rk);
   GUARD(rkqu, rd_kafka_queue_destroy);
 
-  if (program.is_subcommand_used(topics.handle())) {
-    return topics.run(rk, rkqu) ? 0 : 1;
-  } else {
-    std::cerr << "Invalid subcommand\n" << program << std::endl;
+  try {
+    if (topics.used_by_parent(program)) {
+      topics.run(rk, rkqu);
+    } else if (configs.used_by_parent(program)) {
+      configs.run();
+    } else {
+      if (program["--get-config"] == true) {
+        if (auto config_file = configs.config_file(); !config_file.empty()) {
+          std::cout << "config file: " << configs.config_file() << std::endl;
+          return 0;
+        } else {
+          std::cerr << "Unexpected empty config file" << std::endl;
+          return 2;
+        }
+      }
+      std::cerr << "Invalid subcommand\n" << program << std::endl;
+      return 1;
+    }
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << std::endl;
     return 1;
   }
+  return 0;
 }

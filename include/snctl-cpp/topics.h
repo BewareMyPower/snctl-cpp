@@ -15,17 +15,18 @@
  */
 #pragma once
 
+#include "snctl-cpp/subcommand.h"
 #include "snctl-cpp/topics/create_topic.h"
 #include "snctl-cpp/topics/delete_topic.h"
 #include "snctl-cpp/topics/describe_topic.h"
 #include "snctl-cpp/topics/list_topics.h"
 #include <argparse/argparse.hpp>
-#include <iostream>
 #include <librdkafka/rdkafka.h>
+#include <stdexcept>
 
-class Topics {
+class Topics : public SubCommand {
 public:
-  Topics(argparse::ArgumentParser &parent) {
+  Topics(argparse::ArgumentParser &parent) : SubCommand("topics") {
     create_command_.add_description("Create a topic");
     create_command_.add_argument("topic").help("Topic to create").required();
     create_command_.add_argument("-p")
@@ -43,16 +44,16 @@ public:
         .help("Topic to describe")
         .required();
 
-    current_.add_subparser(create_command_);
-    current_.add_subparser(delete_command_);
-    current_.add_subparser(list_command_);
-    current_.add_subparser(describe_command_);
+    add_child(create_command_);
+    add_child(delete_command_);
+    add_child(list_command_);
+    add_child(describe_command_);
 
-    parent.add_subparser(current_);
+    attach_parent(parent);
   }
 
-  bool run(rd_kafka_t *rk, rd_kafka_queue_t *rkqu) {
-    if (current_.is_subcommand_used(create_command_)) {
+  void run(rd_kafka_t *rk, rd_kafka_queue_t *rkqu) {
+    if (is_subcommand_used(create_command_)) {
       auto topic = create_command_.get("topic");
       auto partitions = create_command_.get<int>("-p");
       if (partitions < 0) {
@@ -60,26 +61,20 @@ public:
             "Number of partitions must be greater than or equal to 0");
       }
       create_topic(rk, rkqu, topic, partitions);
-    } else if (current_.is_subcommand_used(delete_command_)) {
+    } else if (is_subcommand_used(delete_command_)) {
       auto topic = delete_command_.get("topic");
       delete_topic(rk, rkqu, topic);
-    } else if (current_.is_subcommand_used(list_command_)) {
+    } else if (is_subcommand_used(list_command_)) {
       list_topics(rk);
-    } else if (current_.is_subcommand_used(describe_command_)) {
+    } else if (is_subcommand_used(describe_command_)) {
       auto topic = describe_command_.get("topic");
       describe_topic(rk, rkqu, topic);
     } else {
-      std::cerr << "Invalid subcommand for topics\n" << current_ << std::endl;
-      return false;
+      fail();
     }
-    return true;
   }
 
-  auto &handle() const noexcept { return current_; }
-
 private:
-  argparse::ArgumentParser current_{"topics"};
-
   argparse::ArgumentParser create_command_{"create"};
   argparse::ArgumentParser delete_command_{"delete"};
   argparse::ArgumentParser list_command_{"list"};

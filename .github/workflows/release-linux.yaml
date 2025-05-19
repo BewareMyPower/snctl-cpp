@@ -60,7 +60,4 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: snctl-cpp-alpine-${{ matrix.platform }}
-          path: |
-            snctl-cpp
-            sncloud.ini
-            install.sh
+          path: snctl-cpp
