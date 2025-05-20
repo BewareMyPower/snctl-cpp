@@ -20,9 +20,9 @@
 
 class RdKafkaEvent final {
 public:
-  static RdKafkaEvent poll(rd_kafka_t *rk, rd_kafka_queue_t *rkqu) {
-    auto event = rd_kafka_queue_poll(rkqu, -1 /* infinite timeout */);
-    if (rd_kafka_event_error(event)) {
+  static RdKafkaEvent poll(rd_kafka_queue_t *rkqu) {
+    auto *event = rd_kafka_queue_poll(rkqu, -1 /* infinite timeout */);
+    if (rd_kafka_event_error(event) != RD_KAFKA_RESP_ERR_NO_ERROR) {
       throw std::runtime_error(rd_kafka_event_error_string(event));
     }
     return RdKafkaEvent(event);
@@ -45,5 +45,5 @@ public:
 private:
   rd_kafka_event_t *event_;
 
-  RdKafkaEvent(rd_kafka_event_t *event) : event_(event) {}
+  explicit RdKafkaEvent(rd_kafka_event_t *event) : event_(event) {}
 };

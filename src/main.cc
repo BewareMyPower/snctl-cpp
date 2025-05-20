@@ -31,7 +31,7 @@
 #include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/topics.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) noexcept(false) {
   std::vector<std::string> default_config_paths{
       std::filesystem::current_path() / "sncloud.ini",
       std::filesystem::path(std::getenv("HOME")) / ".snctl-cpp" /
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  auto rk_conf = rd_kafka_conf_new();
+  auto *rk_conf = rd_kafka_conf_new();
 
   std::array<char, 512> errstr;
   auto fail = [&errstr](const std::string &action) {
@@ -86,7 +86,9 @@ int main(int argc, char *argv[]) {
   for (auto &&[key, value] : rk_conf_map) {
     if (rd_kafka_conf_set(rk_conf, key.c_str(), value.c_str(), errstr.data(),
                           errstr.size()) != RD_KAFKA_CONF_OK) {
-      fail("set " + key + " => " + value);
+      std::string err_msg = "set " + key;
+      err_msg += " => " + value;
+      fail(err_msg);
     }
   }
 
@@ -100,7 +102,7 @@ int main(int argc, char *argv[]) {
       rd_kafka_conf_set_log_cb(
           rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
                        const char *buf) {
-            auto file = static_cast<FILE *>(rd_kafka_opaque(rk));
+            auto *file = static_cast<FILE *>(rd_kafka_opaque(rk));
             fprintf(file, "[%d] %s: %s\n", level, fac, buf);
             fflush(file);
           });
@@ -111,14 +113,14 @@ int main(int argc, char *argv[]) {
                      const char *buf) {});
   }
 
-  auto rk =
+  auto *rk =
       rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr.data(), errstr.size());
-  if (!rk) {
+  if (rk != nullptr) {
     fail("create producer");
   }
   GUARD(rk, rd_kafka_destroy);
 
-  auto rkqu = rd_kafka_queue_new(rk);
+  auto *rkqu = rd_kafka_queue_new(rk);
   GUARD(rkqu, rd_kafka_queue_destroy);
 
   try {
@@ -128,13 +130,13 @@ int main(int argc, char *argv[]) {
       configs.run();
     } else {
       if (program["--get-config"] == true) {
-        if (auto config_file = configs.config_file(); !config_file.empty()) {
-          std::cout << "config file: " << configs.config_file() << std::endl;
-          return 0;
-        } else {
+        if (const auto &config_file = configs.config_file();
+            config_file.empty()) {
           std::cerr << "Unexpected empty config file" << std::endl;
           return 2;
         }
+        std::cout << "config file: " << configs.config_file() << std::endl;
+        return 0;
       }
       std::cerr << "Invalid subcommand\n" << program << std::endl;
       return 1;

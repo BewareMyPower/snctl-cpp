@@ -26,7 +26,7 @@
 
 class Topics : public SubCommand {
 public:
-  Topics(argparse::ArgumentParser &parent) : SubCommand("topics") {
+  explicit Topics(argparse::ArgumentParser &parent) : SubCommand("topics") {
     create_command_.add_description("Create a topic");
     create_command_.add_argument("topic").help("Topic to create").required();
     create_command_.add_argument("-p")

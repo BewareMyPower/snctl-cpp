@@ -25,35 +25,36 @@
 inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                            const std::string &topic) {
   const char *topics[] = {topic.c_str()};
-  auto topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
+  auto *topic_names = rd_kafka_TopicCollection_of_topic_names(topics, 1);
   GUARD(topic_names, rd_kafka_TopicCollection_destroy);
 
   rd_kafka_DescribeTopics(rk, topic_names, nullptr, rkqu);
 
   try {
-    auto event = RdKafkaEvent::poll(rk, rkqu);
-    auto result = rd_kafka_event_DescribeTopics_result(event.handle());
+    auto event = RdKafkaEvent::poll(rkqu);
+    const auto *result = rd_kafka_event_DescribeTopics_result(event.handle());
     size_t result_topics_cnt;
-    auto result_topics =
+    auto *result_topics =
         rd_kafka_DescribeTopics_result_topics(result, &result_topics_cnt);
     for (size_t i = 0; i < result_topics_cnt; i++) {
-      auto result_topic = result_topics[i];
-      auto topic_name = rd_kafka_TopicDescription_name(result_topic);
-      auto error = rd_kafka_TopicDescription_error(result_topic);
-      if (rd_kafka_error_code(error)) {
+      const auto *result_topic = result_topics[i];
+      const char *topic_name = rd_kafka_TopicDescription_name(result_topic);
+      const auto *error = rd_kafka_TopicDescription_error(result_topic);
+      if (rd_kafka_error_code(error) != RD_KAFKA_RESP_ERR_NO_ERROR) {
         std::cout << "Topic: " << topic_name
                   << " has error: " << rd_kafka_error_string(error) << "\n";
         continue;
       }
 
       size_t partition_cnt;
-      auto partitions =
+      auto *partitions =
           rd_kafka_TopicDescription_partitions(result_topic, &partition_cnt);
       for (size_t i = 0; i < partition_cnt; i++) {
-        auto result_partition = partitions[i];
+        const auto *result_partition = partitions[i];
         auto id = rd_kafka_TopicPartitionInfo_partition(result_partition);
-        auto leader = rd_kafka_TopicPartitionInfo_leader(result_partition);
-        if (leader) {
+        const auto *leader =
+            rd_kafka_TopicPartitionInfo_leader(result_partition);
+        if (leader != nullptr) {
           std::cout << "Partition[" << id << "] "
                     << R"(leader: {"id": )" << rd_kafka_Node_id(leader)
                     << R"(, url: ")" << rd_kafka_Node_host(leader) << ':'

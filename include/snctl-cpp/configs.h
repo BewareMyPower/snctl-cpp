@@ -26,7 +26,7 @@
 
 struct KafkaConfigs {
   std::string bootstrap_servers = "localhost:9092";
-  std::string token = "";
+  std::string token;
 };
 
 struct LogConfigs {
@@ -39,7 +39,7 @@ struct LogConfigs {
 
 class Configs : public SubCommand {
 public:
-  Configs(argparse::ArgumentParser &parent) : SubCommand("configs") {
+  explicit Configs(argparse::ArgumentParser &parent) : SubCommand("configs") {
     update_command_.add_description("Update key-value from the INI section");
     update_command_.add_argument("--kafka-url")
         .help("The Kafka bootstrap.servers");
@@ -55,7 +55,7 @@ public:
       if (!std::filesystem::exists(file)) {
         continue;
       }
-      if (loadFile(file)) {
+      if (load_file(file)) {
         break;
       }
     }
@@ -63,7 +63,7 @@ public:
       config_file_ = std::filesystem::current_path() / "sncloud.ini";
       std::cout << "No config file found. Creating " << config_file_
                 << " with the default configs" << std::endl;
-      saveFile();
+      save_file();
     }
   }
 
@@ -98,7 +98,7 @@ public:
         }
       }
       if (updated) {
-        saveFile();
+        save_file();
         std::cout << "Updated config file " << config_file_ << std::endl;
       } else {
         std::cout << "No config updated" << std::endl;
@@ -122,16 +122,16 @@ private:
   KafkaConfigs kafka_configs_;
   LogConfigs log_configs_;
 
-  std::optional<std::string> getValue(const std::string &section,
-                                      const std::string &key) {
-    auto value = ini_.GetValue(section.c_str(), key.c_str());
+  std::optional<std::string> get_value(const std::string &section,
+                                       const std::string &key) {
+    const auto *value = ini_.GetValue(section.c_str(), key.c_str());
     if (value == nullptr) {
       return std::nullopt;
     }
     return std::optional(value);
   }
 
-  bool loadFile(const std::string &file) {
+  bool load_file(const std::string &file) {
     if (auto rc = ini_.LoadFile(file.c_str()); rc != SI_OK) {
       std::cerr << "Failed to load existing file " << file << ": " << rc
                 << std::endl;
@@ -143,20 +143,20 @@ private:
     log_configs_ = {};
 
     // load configs from the INI file
-    if (auto value = getValue("kafka", "bootstrap.servers"); value) {
+    if (auto value = get_value("kafka", "bootstrap.servers"); value) {
       kafka_configs_.bootstrap_servers = *value;
     } else {
       std::cerr << "No bootstrap.servers found in the kafka section. Use the "
                    "default value: "
                 << kafka_configs_.bootstrap_servers << std::endl;
     }
-    if (auto value = getValue("kafka", "token"); value) {
+    if (auto value = get_value("kafka", "token"); value) {
       kafka_configs_.token = *value;
     }
-    if (auto value = getValue("log", "enabled"); value) {
+    if (auto value = get_value("log", "enabled"); value) {
       log_configs_.enabled = std::string(*value) != "false";
       if (log_configs_.enabled) {
-        if (auto value = getValue("log", "path"); value) {
+        if (auto value = get_value("log", "path"); value) {
           log_configs_.path = *value;
         }
       }
@@ -166,7 +166,7 @@ private:
     return true;
   }
 
-  void saveFile() {
+  void save_file() {
     ini_.SetValue("kafka", "bootstrap.servers",
                   kafka_configs_.bootstrap_servers.c_str());
     ini_.SetValue("kafka", "token", kafka_configs_.token.c_str());
