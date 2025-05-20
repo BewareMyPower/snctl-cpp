@@ -1,35 +1,28 @@
 ---
-Checks:          'clang-diagnostic-*,clang-analyzer-*'
-WarningsAsErrors: ''
+Checks: -*, clang-analyzer-core.*, clang-analyzer-cplusplus.*, -clang-analyzer-cplusplus.InnerPointer, clang-analyzer-deadcode.*, clang-analyzer-nullability.*, clang-analyzer-security.*, clang-analyzer-unix.*, clang-analyzer-valist.*, cppcoreguidelines-init-variables, cppcoreguidelines-macro-usage, cppcoreguidelines-interfaces-global-init, cppcoreguidelines-narrowing-conversions, cppcoreguidelines-no-malloc, cppcoreguidelines-prefer-member-initializer, cppcoreguidelines-special-member-functions, cppcoreguidelines-slicing, google-build-explicit-make-pair, google-default-arguments, google-explicit-constructor, modernize-avoid-bind, modernize-loop-convert, modernize-macro-to-enum, modernize-make-shared, modernize-make-unique, modernize-pass-by-value, modernize-redundant-void-arg, modernize-return-braced-init-list, modernize-use-auto, modernize-use-bool-literals, modernize-use-emplace, modernize-use-equals-default, modernize-use-equals-delete, modernize-use-nullptr, modernize-use-override, modernize-use-using, performance-faster-string-find, performance-for-range-copy, performance-implicit-conversion-in-loop, performance-inefficient-algorithm, performance-inefficient-vector-operation, performance-move-const-arg, performance-move-constructor-init, performance-no-automatic-move, performance-trivially-destructible, performance-type-promotion-in-math-fn, performance-unnecessary-copy-initialization, performance-unnecessary-value-param, readability-avoid-const-params-in-decls, readability-const-return-type, readability-convert-member-functions-to-static, readability-make-member-function-const, readability-redundant-access-specifiers, readability-redundant-control-flow, readability-redundant-declaration, readability-redundant-member-init, readability-redundant-string-cstr, readability-redundant-string-init, readability-simplify-boolean-expr, readability-simplify-subscript-expr, readability-string-compare, readability-identifier-naming, cppcoreguidelines-avoid-goto, bugprone-use-after-move
+WarningsAsErrors: '*'
 HeaderFileExtensions:
   - ''
   - h
-  - hh
-  - hpp
-  - hxx
 ImplementationFileExtensions:
-  - c
   - cc
-  - cpp
-  - cxx
-HeaderFilterRegex: ''
+HeaderFilterRegex: '.*'
 ExcludeHeaderFilterRegex: ''
 FormatStyle:     none
 User:            xuyunze
 CheckOptions:
-  cert-dcl16-c.NewSuffixes: 'L;LL;LU;LLU'
-  cert-err33-c.AllowCastToVoid: 'true'
   cert-err33-c.CheckedFunctions: '^::aligned_alloc;^::asctime_s;^::at_quick_exit;^::atexit;^::bsearch;^::bsearch_s;^::btowc;^::c16rtomb;^::c32rtomb;^::calloc;^::clock;^::cnd_broadcast;^::cnd_init;^::cnd_signal;^::cnd_timedwait;^::cnd_wait;^::ctime_s;^::fclose;^::fflush;^::fgetc;^::fgetpos;^::fgets;^::fgetwc;^::fopen;^::fopen_s;^::fprintf;^::fprintf_s;^::fputc;^::fputs;^::fputwc;^::fputws;^::fread;^::freopen;^::freopen_s;^::fscanf;^::fscanf_s;^::fseek;^::fsetpos;^::ftell;^::fwprintf;^::fwprintf_s;^::fwrite;^::fwscanf;^::fwscanf_s;^::getc;^::getchar;^::getenv;^::getenv_s;^::gets_s;^::getwc;^::getwchar;^::gmtime;^::gmtime_s;^::localtime;^::localtime_s;^::malloc;^::mbrtoc16;^::mbrtoc32;^::mbsrtowcs;^::mbsrtowcs_s;^::mbstowcs;^::mbstowcs_s;^::memchr;^::mktime;^::mtx_init;^::mtx_lock;^::mtx_timedlock;^::mtx_trylock;^::mtx_unlock;^::printf_s;^::putc;^::putwc;^::raise;^::realloc;^::remove;^::rename;^::scanf;^::scanf_s;^::setlocale;^::setvbuf;^::signal;^::snprintf;^::snprintf_s;^::sprintf;^::sprintf_s;^::sscanf;^::sscanf_s;^::strchr;^::strerror_s;^::strftime;^::strpbrk;^::strrchr;^::strstr;^::strtod;^::strtof;^::strtoimax;^::strtok;^::strtok_s;^::strtol;^::strtold;^::strtoll;^::strtoul;^::strtoull;^::strtoumax;^::strxfrm;^::swprintf;^::swprintf_s;^::swscanf;^::swscanf_s;^::thrd_create;^::thrd_detach;^::thrd_join;^::thrd_sleep;^::time;^::timespec_get;^::tmpfile;^::tmpfile_s;^::tmpnam;^::tmpnam_s;^::tss_create;^::tss_get;^::tss_set;^::ungetc;^::ungetwc;^::vfprintf;^::vfprintf_s;^::vfscanf;^::vfscanf_s;^::vfwprintf;^::vfwprintf_s;^::vfwscanf;^::vfwscanf_s;^::vprintf_s;^::vscanf;^::vscanf_s;^::vsnprintf;^::vsnprintf_s;^::vsprintf;^::vsprintf_s;^::vsscanf;^::vsscanf_s;^::vswprintf;^::vswprintf_s;^::vswscanf;^::vswscanf_s;^::vwprintf_s;^::vwscanf;^::vwscanf_s;^::wcrtomb;^::wcschr;^::wcsftime;^::wcspbrk;^::wcsrchr;^::wcsrtombs;^::wcsrtombs_s;^::wcsstr;^::wcstod;^::wcstof;^::wcstoimax;^::wcstok;^::wcstok_s;^::wcstol;^::wcstold;^::wcstoll;^::wcstombs;^::wcstombs_s;^::wcstoul;^::wcstoull;^::wcstoumax;^::wcsxfrm;^::wctob;^::wctrans;^::wctype;^::wmemchr;^::wprintf_s;^::wscanf;^::wscanf_s;'
-  cert-oop54-cpp.WarnOnlyIfThisHasSuspiciousField: 'false'
-  cert-str34-c.DiagnoseSignedUnsignedCharComparisons: 'false'
-  cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: 'true'
-  google-readability-braces-around-statements.ShortStatementLines: '1'
-  google-readability-function-size.StatementThreshold: '800'
-  google-readability-namespace-comments.ShortNamespaceLines: '10'
-  google-readability-namespace-comments.SpacesBeforeComments: '2'
-  llvm-else-after-return.WarnOnConditionVariables: 'false'
-  llvm-else-after-return.WarnOnUnfixable: 'false'
-  llvm-qualified-auto.AddConstToQualified: 'false'
-SystemHeaders:   false
-...
-
+  cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: 'true'
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: 'true'
+  performance-move-const-arg.CheckTriviallyCopyableMove: 'false'
+  readability-identifier-naming.LocalVariableCase: 'lower_case'
+  readability-identifier-naming.LocalConstantCase: 'lower_case'
+  readability-identifier-naming.StructCase: 'CamelCase'
+  readability-identifier-naming.ClassCase: 'CamelCase'
+  readability-identifier-naming.ParameterCase: 'lower_case'
+  readability-identifier-naming.MethodCase: 'lower_case'
+  readability-identifier-naming.FunctionCase: 'lower_case'
+  readability-identifier-naming.MemberCase: 'lower_case'
+  readability-identifier-naming.PrivateMemberSuffix: '_'
+  readability-identifier-naming.PublicMemberSuffix: ''
+SystemHeaders: false

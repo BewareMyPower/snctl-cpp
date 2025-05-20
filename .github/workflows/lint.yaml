@@ -50,4 +50,4 @@ jobs:
 
       - name: Tidy
         run: |
-          run-clang-tidy -p build -header-filter='.*' -warnings-as-errors='*'
+          run-clang-tidy -p build
