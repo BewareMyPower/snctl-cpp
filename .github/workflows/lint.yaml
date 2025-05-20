@@ -39,6 +39,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      - name: Install necessary tools
+        run: |
+          sudo apt-get install -y clang-tidy
+
       - name: Build
         run: |
           cmake -B build
@@ -46,5 +50,4 @@ jobs:
 
       - name: Tidy
         run: |
-          apt-get install -y clang-tidy
           run-clang-tidy -p build -j4 -header-filter='.*'
