@@ -1,5 +1,45 @@
 ---
-Checks: -*, clang-analyzer-core.*, clang-analyzer-cplusplus.*, -clang-analyzer-cplusplus.InnerPointer, clang-analyzer-deadcode.*, clang-analyzer-nullability.*, clang-analyzer-security.*, clang-analyzer-unix.*, clang-analyzer-valist.*, cppcoreguidelines-init-variables, cppcoreguidelines-macro-usage, cppcoreguidelines-interfaces-global-init, cppcoreguidelines-narrowing-conversions, cppcoreguidelines-no-malloc, cppcoreguidelines-prefer-member-initializer, cppcoreguidelines-special-member-functions, cppcoreguidelines-slicing, google-build-explicit-make-pair, google-default-arguments, google-explicit-constructor, modernize-avoid-bind, modernize-loop-convert, modernize-macro-to-enum, modernize-make-shared, modernize-make-unique, modernize-pass-by-value, modernize-redundant-void-arg, modernize-return-braced-init-list, modernize-use-auto, modernize-use-bool-literals, modernize-use-emplace, modernize-use-equals-default, modernize-use-equals-delete, modernize-use-nullptr, modernize-use-override, modernize-use-using, performance-faster-string-find, performance-for-range-copy, performance-implicit-conversion-in-loop, performance-inefficient-algorithm, performance-inefficient-vector-operation, performance-move-const-arg, performance-move-constructor-init, performance-no-automatic-move, performance-trivially-destructible, performance-type-promotion-in-math-fn, performance-unnecessary-copy-initialization, performance-unnecessary-value-param, readability-avoid-const-params-in-decls, readability-const-return-type, readability-convert-member-functions-to-static, readability-make-member-function-const, readability-redundant-access-specifiers, readability-redundant-control-flow, readability-redundant-declaration, readability-redundant-member-init, readability-redundant-string-cstr, readability-redundant-string-init, readability-simplify-boolean-expr, readability-simplify-subscript-expr, readability-string-compare, readability-identifier-naming, cppcoreguidelines-avoid-goto, bugprone-use-after-move
+Checks: >
+  # It follows https://github.com/googleapis/google-cloud-cpp/blob/main/.clang-tidy
+  -*,
+  abseil-*,
+  bugprone-*,
+  google-*,
+  misc-*,
+  modernize-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -google-readability-braces-around-statements,
+  -google-readability-namespace-comments,
+  -google-runtime-references,
+  -misc-non-private-member-variables-in-classes,
+  -misc-const-correctness,
+  -misc-include-cleaner,
+  -modernize-return-braced-init-list,
+  -modernize-use-trailing-return-type,
+  -modernize-concat-nested-namespaces,
+  -modernize-use-nodiscard,
+  -modernize-avoid-c-arrays,
+  -modernize-type-traits,
+  -modernize-unary-static-assert,
+  -performance-move-const-arg,
+  -performance-avoid-endl,
+  -performance-enum-size,
+  -readability-braces-around-statements,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-redundant-declaration,
+  -readability-avoid-return-with-void-value,
+  -readability-function-cognitive-complexity,
+  -bugprone-narrowing-conversions,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-inc-dec-in-conditions,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-unchecked-optional-access,
+  -bugprone-unused-local-non-trivial-variable,
+  -bugprone-unused-return-value
 WarningsAsErrors: '*'
 HeaderFileExtensions:
   - ''
@@ -7,7 +47,6 @@ HeaderFileExtensions:
 ImplementationFileExtensions:
   - cc
 HeaderFilterRegex: '.*'
-ExcludeHeaderFilterRegex: ''
 FormatStyle:     none
 User:            xuyunze
 CheckOptions:

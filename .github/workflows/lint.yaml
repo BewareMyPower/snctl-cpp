@@ -51,3 +51,7 @@ jobs:
       - name: Tidy
         run: |
           run-clang-tidy -p build
+          if [[ $? -ne 0 ]]; then
+            echo "clang-tidy failed"
+            exit 1
+          fi
