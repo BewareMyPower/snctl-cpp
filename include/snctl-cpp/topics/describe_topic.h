@@ -54,7 +54,7 @@ inline void describe_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
         auto id = rd_kafka_TopicPartitionInfo_partition(result_partition);
         auto leader = rd_kafka_TopicPartitionInfo_leader(result_partition);
         if (leader) {
-          std::cout << "Partition[" << i << "] "
+          std::cout << "Partition[" << id << "] "
                     << R"(leader: {"id": )" << rd_kafka_Node_id(leader)
                     << R"(, url: ")" << rd_kafka_Node_host(leader) << ':'
                     << rd_kafka_Node_port(leader) << R"("})" << std::endl;
