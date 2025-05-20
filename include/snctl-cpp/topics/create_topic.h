@@ -28,8 +28,8 @@
 inline void create_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                          const std::string &topic, int num_partitions) {
   std::array<char, 512> errstr;
-  auto rk_topic = rd_kafka_NewTopic_new(topic.c_str(), num_partitions, 1,
-                                        errstr.data(), errstr.size());
+  auto *rk_topic = rd_kafka_NewTopic_new(topic.c_str(), num_partitions, 1,
+                                         errstr.data(), errstr.size());
   if (rk_topic == nullptr) {
     throw std::runtime_error("Failed to create topic: " +
                              std::string(errstr.data()));
@@ -39,7 +39,7 @@ inline void create_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
   rd_kafka_CreateTopics(rk, &rk_topic, 1, nullptr, rkqu);
 
   try {
-    RdKafkaEvent::poll(rk, rkqu);
+    RdKafkaEvent::poll(rkqu);
     std::cout << R"(Created topic ")" << topic << R"(" with )" << num_partitions
               << " partition" << (num_partitions == 1 ? "" : "s") << std::endl;
   } catch (const std::runtime_error &e) {

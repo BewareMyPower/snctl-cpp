@@ -26,21 +26,21 @@
 
 inline void delete_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                          const std::string &topic) {
-  auto rk_topic = rd_kafka_DeleteTopic_new(topic.c_str());
+  auto *rk_topic = rd_kafka_DeleteTopic_new(topic.c_str());
   GUARD(rk_topic, rd_kafka_DeleteTopic_destroy);
 
   rd_kafka_DeleteTopics(rk, &rk_topic, 1, nullptr, rkqu);
 
   try {
-    auto event = RdKafkaEvent::poll(rk, rkqu);
-    auto result = rd_kafka_event_DeleteTopics_result(event.handle());
+    auto event = RdKafkaEvent::poll(rkqu);
+    const auto *result = rd_kafka_event_DeleteTopics_result(event.handle());
     size_t cntp;
-    auto topics = rd_kafka_DeleteTopics_result_topics(result, &cntp);
+    const auto *topics = rd_kafka_DeleteTopics_result_topics(result, &cntp);
     if (cntp != 1) {
       throw std::runtime_error("DeleteTopics response has " +
                                std::to_string(cntp) + " topics");
     }
-    if (auto error = rd_kafka_topic_result_error_string(topics[0]);
+    if (const char *error = rd_kafka_topic_result_error_string(topics[0]);
         error == nullptr) {
       std::cout << R"(Deleted topic ")" << topic << R"(")" << std::endl;
     } else {

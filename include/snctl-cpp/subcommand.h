@@ -22,9 +22,9 @@
 
 class SubCommand {
 public:
-  SubCommand(const std::string &name) : name_(name), handle_(name) {}
+  explicit SubCommand(const std::string &name) : name_(name), handle_(name) {}
 
-  bool used_by_parent(argparse::ArgumentParser &parent) const noexcept {
+  bool used_by_parent(argparse::ArgumentParser &parent) const {
     return parent.is_subcommand_used(handle_);
   }
 
