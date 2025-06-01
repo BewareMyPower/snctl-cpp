@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "snctl-cpp/configs.h"
+#include "snctl-cpp/groups.h"
 #include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/topics.h"
 
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) noexcept(false) {
 
   Topics topics{program};
   Configs configs{program};
+  Groups groups{program};
   try {
     program.parse_args(argc, argv);
   } catch (const std::exception &err) {
@@ -128,6 +130,8 @@ int main(int argc, char *argv[]) noexcept(false) {
       topics.run(rk, rkqu);
     } else if (configs.used_by_parent(program)) {
       configs.run();
+    } else if (groups.used_by_parent(program)) {
+      groups.run(rk, rkqu);
     } else {
       if (program["--get-config"] == true) {
         if (const auto &config_file = configs.config_file();
