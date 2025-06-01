@@ -63,7 +63,9 @@ Updated config file /private/tmp/sncloud.ini
 
 **NOTE**: The commands below assumes `snctl-cpp` is in the `PATH`.
 
-### Create a topic
+### Topics
+
+#### Create a topic
 
 ```bash
 $ snctl-cpp topics create tp0
@@ -72,7 +74,7 @@ $ snctl-cpp topics create tp1 -p 5
 Created topic "tp1" with 5 partitions
 ```
 
-### Delete a topic
+#### Delete a topic
 
 ```bash
 $ snctl-cpp topics delete tp
@@ -81,7 +83,7 @@ $ snctl-cpp topics delete tp0
 Deleted topic "tp0"
 ```
 
-### Describe a topic
+#### Describe a topic
 
 Query the owner brokers for all partitions:
 
@@ -105,7 +107,7 @@ Partition[15] leader: {"id": 644587507, url: "pb2-<xxx>:9093"}
 
 As you can see, when a client specifies `use1-az1` as its zone, only brokers in the same zone (`pb2` and `pb5`) will serve the requests from that client.
 
-### List topics
+#### List topics
 
 List all topics and print the number of partitions for each topic:
 
@@ -115,6 +117,18 @@ topic count: 2
 [0] "my-topic-2" with 1 partition
 [1] "my-topic-1" with 10 partitions
 ```
+
+## Consumer Groups
+
+### List all consumer groups
+
+```bash
+$ snctl-cpp groups list
+There are 1 group
+[0] my-group Stable
+```
+
+The format of each line is `[index] <group-id> <state>`.
 
 ## Logging
 
