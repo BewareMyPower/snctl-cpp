@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) noexcept(false) {
 
   auto *rk =
       rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr.data(), errstr.size());
-  if (rk != nullptr) {
+  if (rk == nullptr) {
     fail("create producer");
   }
   GUARD(rk, rd_kafka_destroy);
