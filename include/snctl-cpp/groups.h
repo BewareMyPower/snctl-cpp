@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "snctl-cpp/groups/describe_group.h"
 #include "snctl-cpp/groups/list_groups.h"
 #include "snctl-cpp/subcommand.h"
 
@@ -25,14 +26,23 @@ class Groups : public SubCommand {
 public:
   explicit Groups(argparse::ArgumentParser &parent) : SubCommand("groups") {
     list_command_.add_description("List all consumer groups");
+    describe_command_.add_description("Describe a specific consumer group")
+        .add_argument("group")
+        .help("The group id")
+        .required();
 
     add_child(list_command_);
+    add_child(describe_command_);
+
     attach_parent(parent);
   }
 
   void run(rd_kafka_t *rk, rd_kafka_queue_t *rkqu) {
     if (is_subcommand_used(list_command_)) {
       list_groups(rk, rkqu);
+    } else if (is_subcommand_used(describe_command_)) {
+      auto group = describe_command_.get("group");
+      describe_group(rk, rkqu, group);
     } else {
       fail();
     }
@@ -40,4 +50,5 @@ public:
 
 private:
   argparse::ArgumentParser list_command_{"list"};
+  argparse::ArgumentParser describe_command_{"describe"};
 };
