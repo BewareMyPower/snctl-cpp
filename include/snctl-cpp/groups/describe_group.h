@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "snctl-cpp/perf.h"
 #include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/rk_event_wrapper.h"
 #include <cassert>
@@ -23,6 +24,7 @@
 #include <iostream>
 #include <librdkafka/rdkafka.h>
 #include <map>
+#include <memory>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
@@ -133,10 +135,12 @@ query_end_offsets(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
 inline void describe_group(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                            const std::string &group, bool show_lag) {
   const char *groups[1] = {group.c_str()};
+  auto perf = std::make_unique<Perf>("describe_group");
   rd_kafka_DescribeConsumerGroups(rk, groups, 1, nullptr, rkqu);
 
   try {
     auto event = RdKafkaEvent::poll(rkqu);
+    perf.reset();
     const auto *result =
         rd_kafka_event_DescribeConsumerGroups_result(event.handle());
     assert(result != nullptr);
@@ -229,9 +233,12 @@ inline void describe_group(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
         }
       }
 
+      perf = std::make_unique<Perf>("query_committed_offsets");
       const auto committed_offsets =
           query_committed_offsets(rk, rkqu, group_id, rk_topic_partitions);
+      perf = std::make_unique<Perf>("query_end_offsets");
       const auto end_offsets = query_end_offsets(rk, rkqu, rk_topic_partitions);
+      perf.reset();
       std::cout << "Offsets info for group '" << group_id << "' with "
                 << committed_offsets.size()
                 << " topic-partitions:" << std::endl;
