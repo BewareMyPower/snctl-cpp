@@ -30,6 +30,10 @@ public:
         .add_argument("group")
         .help("The group id")
         .required();
+    describe_command_.add_argument("--lag")
+        .default_value(false)
+        .implicit_value(true)
+        .help("Show the lag of the group");
 
     add_child(list_command_);
     add_child(describe_command_);
@@ -42,7 +46,8 @@ public:
       list_groups(rk, rkqu);
     } else if (is_subcommand_used(describe_command_)) {
       auto group = describe_command_.get("group");
-      describe_group(rk, rkqu, group);
+      auto show_lag = describe_command_.get<bool>("lag");
+      describe_group(rk, rkqu, group, show_lag);
     } else {
       fail();
     }
