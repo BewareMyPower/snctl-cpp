@@ -44,7 +44,6 @@ inline void list_groups(rd_kafka_t *rk, rd_kafka_queue_t *rkqu) {
 
     const auto *groups =
         rd_kafka_ListConsumerGroups_result_valid(result, &count);
-    assert(groups != nullptr);
     std::cout << "There are " << count << " group" << (count == 1 ? "" : "s")
               << std::endl;
     for (size_t i = 0; i < count; i++) {
