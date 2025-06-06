@@ -150,10 +150,10 @@ Group ID: sub
 ...
 Offsets info for group 'sub' with 4 topic-partitions:
 | topic-partition | committed offset | end offset | lag |
-| test-0@0 | 0 | 0 | 0 |
-| test-1@1 | 1 | 1 | 0 |
-| test-2@0 | 0 | 0 | 0 |
-| test-3@0 | 0 | 0 | 0 |
+| test-0 | 0 | 0 | 0 |
+| test-1 | 1 | 1 | 0 |
+| test-2 | 0 | 0 | 0 |
+| test-3 | 0 | 0 | 0 |
 ```
 
 ## Logging
