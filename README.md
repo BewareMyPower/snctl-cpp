@@ -142,7 +142,19 @@ There are 2 members:
 | 1 | consumer-sub-2 | consumer-sub-2-63b7c688-3007-4650-91eb-404284dfd837 | /127.0.0.1:54213 | [test-2, test-3] |
 ```
 
-The format of each line is `[index] <group-id> <state>`.
+Adding the `--lag` option can describe the lag info for all subscribed topic-partitions:
+
+```bash
+$ time ./build/snctl-cpp groups describe sub --lag
+Group ID: sub
+...
+Offsets info for group 'sub' with 4 topic-partitions:
+| topic-partition | committed offset | end offset | lag |
+| test-0@0 | 0 | 0 | 0 |
+| test-1@1 | 1 | 1 | 0 |
+| test-2@0 | 0 | 0 | 0 |
+| test-3@0 | 0 | 0 | 0 |
+```
 
 ## Logging
 
