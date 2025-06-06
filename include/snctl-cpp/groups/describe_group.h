@@ -23,6 +23,14 @@
 #include <ostream>
 #include <string>
 
+static std::ostream &operator<<(std::ostream &os, const rd_kafka_Node_t *node) {
+  os << rd_kafka_Node_host(node) << ":" << rd_kafka_Node_port(node);
+  if (const auto *rack = rd_kafka_Node_rack(node); rack != nullptr) {
+    os << " (rack: " << rack << ")";
+  }
+  return os;
+}
+
 static std::ostream &operator<<(std::ostream &os,
                                 const rd_kafka_topic_partition_t &partition) {
   os << partition.topic << "-" << partition.partition;
@@ -59,8 +67,6 @@ inline void describe_group(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
       return;
     }
 
-    const auto is_simple =
-        rd_kafka_ConsumerGroupDescription_is_simple_consumer_group(group);
     const auto *assignor =
         rd_kafka_ConsumerGroupDescription_partition_assignor(group);
     const auto state = rd_kafka_ConsumerGroupDescription_state(group);
@@ -72,9 +78,10 @@ inline void describe_group(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
     std::cout << "Assignor: " << assignor << std::endl;
     std::cout << "State: " << state_name << std::endl;
     std::cout << "Type: " << type << std::endl;
+    std::cout << "Coordinator: " << node << std::endl;
     const auto member_count =
         rd_kafka_ConsumerGroupDescription_member_count(group);
-    ;
+
     if (member_count > 0) {
       std::cout << "There are " << member_count << " members:" << std::endl;
       std::cout << "| index | client id | consumer id | host | assignments |"
@@ -100,7 +107,7 @@ inline void describe_group(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
         }
         std::cout << partitions->elems[j];
       }
-      std::cout << "]" << std::endl;
+      std::cout << "] |" << std::endl;
     }
 
   } catch (const std::runtime_error &e) {

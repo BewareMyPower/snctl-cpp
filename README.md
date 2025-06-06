@@ -138,8 +138,8 @@ State: Stable
 Type: 2
 There are 2 members:
 | index | client id | consumer id | host | assignments |
-| 0 | consumer-sub-1 | consumer-sub-1-b97d2b45-86cf-4352-8e82-9ebdfd6fbff6 | /127.0.0.1:54214 | [test-0, test-1]
-| 1 | consumer-sub-2 | consumer-sub-2-63b7c688-3007-4650-91eb-404284dfd837 | /127.0.0.1:54213 | [test-2, test-3]
+| 0 | consumer-sub-1 | consumer-sub-1-b97d2b45-86cf-4352-8e82-9ebdfd6fbff6 | /127.0.0.1:54214 | [test-0, test-1] |
+| 1 | consumer-sub-2 | consumer-sub-2-63b7c688-3007-4650-91eb-404284dfd837 | /127.0.0.1:54213 | [test-2, test-3] |
 ```
 
 The format of each line is `[index] <group-id> <state>`.
