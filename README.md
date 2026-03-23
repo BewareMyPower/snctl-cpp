@@ -44,6 +44,8 @@ If no file exists in the paths above, `snctl-cpp` will create a new file in the 
 bootstrap.servers = localhost:9092
 token =
 fetch.message.max.bytes = 52428800
+max.partition.fetch.bytes = 52428800
+fetch.max.bytes = 52428800
 isolation.level = read_uncommitted
 ```
 
@@ -61,6 +63,12 @@ Updated token
 Updated config file /private/tmp/sncloud.ini
 $ ./snctl-cpp configs update --kafka-fetch-message-max-bytes 52428800
 Updated fetch.message.max.bytes to 52428800
+Updated config file /private/tmp/sncloud.ini
+$ ./snctl-cpp configs update --kafka-max-partition-fetch-bytes 52428800
+Updated max.partition.fetch.bytes to 52428800
+Updated config file /private/tmp/sncloud.ini
+$ ./snctl-cpp configs update --kafka-fetch-max-bytes 52428800
+Updated fetch.max.bytes to 52428800
 Updated config file /private/tmp/sncloud.ini
 $ ./snctl-cpp configs update --kafka-isolation-level read_committed
 Updated isolation.level to read_committed

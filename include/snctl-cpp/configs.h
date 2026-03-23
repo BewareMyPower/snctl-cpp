@@ -20,6 +20,7 @@
 #include <argparse/argparse.hpp>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -28,6 +29,7 @@ struct KafkaConfigs {
   std::string bootstrap_servers = "localhost:9092";
   std::string token;
   int fetch_message_max_bytes = 50 * 1024 * 1024;
+  int fetch_max_bytes = 50 * 1024 * 1024;
   std::string isolation_level = "read_uncommitted";
 };
 
@@ -52,6 +54,12 @@ public:
     update_command_.add_argument("--kafka-token").help("The Kafka token");
     update_command_.add_argument("--kafka-fetch-message-max-bytes")
         .help("The Kafka fetch.message.max.bytes")
+        .scan<'i', int>();
+    update_command_.add_argument("--kafka-max-partition-fetch-bytes")
+        .help("The Kafka max.partition.fetch.bytes")
+        .scan<'i', int>();
+    update_command_.add_argument("--kafka-fetch-max-bytes")
+        .help("The Kafka fetch.max.bytes")
         .scan<'i', int>();
     update_command_.add_argument("--kafka-isolation-level")
         .help("The Kafka isolation.level");
@@ -112,17 +120,46 @@ public:
                     << config_file_ << std::endl;
         }
       }
-      if (update_command_.present("--kafka-fetch-message-max-bytes")) {
-        auto value = parse_fetch_message_max_bytes(
-            update_command_.get<int>("--kafka-fetch-message-max-bytes"));
-        if (value != kafka_configs_.fetch_message_max_bytes) {
-          kafka_configs_.fetch_message_max_bytes = value;
+      if (auto value =
+              update_command_.present<int>("--kafka-fetch-message-max-bytes")) {
+        auto parsed_value = parse_fetch_message_max_bytes(*value);
+        if (parsed_value != kafka_configs_.fetch_message_max_bytes) {
+          kafka_configs_.fetch_message_max_bytes = parsed_value;
           updated = true;
-          std::cout << "Updated fetch.message.max.bytes to " << value
+          std::cout << "Updated fetch.message.max.bytes to " << parsed_value
                     << std::endl;
         } else {
           std::cout << "The provided fetch.message.max.bytes is the same with "
                        "the config in "
+                    << config_file_ << std::endl;
+        }
+      }
+      if (auto value = update_command_.present<int>(
+              "--kafka-max-partition-fetch-bytes")) {
+        auto parsed_value = parse_fetch_message_max_bytes(*value);
+        if (parsed_value != kafka_configs_.fetch_message_max_bytes) {
+          kafka_configs_.fetch_message_max_bytes = parsed_value;
+          updated = true;
+          std::cout << "Updated max.partition.fetch.bytes to " << parsed_value
+                    << std::endl;
+        } else {
+          std::cout
+              << "The provided max.partition.fetch.bytes is the same with "
+                 "the config in "
+              << config_file_ << std::endl;
+        }
+      }
+      if (auto value =
+              update_command_.present<int>("--kafka-fetch-max-bytes")) {
+        auto parsed_value = parse_fetch_max_bytes(*value);
+        if (parsed_value != kafka_configs_.fetch_max_bytes) {
+          kafka_configs_.fetch_max_bytes = parsed_value;
+          updated = true;
+          std::cout << "Updated fetch.max.bytes to " << parsed_value
+                    << std::endl;
+        } else {
+          std::cout << "The provided fetch.max.bytes is the same with the "
+                       "config in "
                     << config_file_ << std::endl;
         }
       }
@@ -234,6 +271,30 @@ private:
                   << kafka_configs_.fetch_message_max_bytes << std::endl;
       }
     }
+    if (auto value = get_value("kafka", "max.partition.fetch.bytes"); value) {
+      try {
+        const auto alias_value = parse_fetch_message_max_bytes(*value);
+        if (alias_value != kafka_configs_.fetch_message_max_bytes) {
+          std::cerr << "Using kafka.max.partition.fetch.bytes value "
+                    << alias_value << " for fetch.message.max.bytes (alias)"
+                    << std::endl;
+        }
+        kafka_configs_.fetch_message_max_bytes = alias_value;
+      } catch (const std::exception &) {
+        std::cerr << "Invalid kafka.max.partition.fetch.bytes '" << *value
+                  << "'. Use the default value: "
+                  << kafka_configs_.fetch_message_max_bytes << std::endl;
+      }
+    }
+    if (auto value = get_value("kafka", "fetch.max.bytes"); value) {
+      try {
+        kafka_configs_.fetch_max_bytes = parse_fetch_max_bytes(*value);
+      } catch (const std::exception &) {
+        std::cerr << "Invalid kafka.fetch.max.bytes '" << *value
+                  << "'. Use the default value: "
+                  << kafka_configs_.fetch_max_bytes << std::endl;
+      }
+    }
     if (auto value = get_value("kafka", "isolation.level"); value) {
       try {
         kafka_configs_.isolation_level = parse_isolation_level(*value);
@@ -290,6 +351,21 @@ private:
     return parse_fetch_message_max_bytes(std::to_string(value));
   }
 
+  static int parse_fetch_max_bytes(const std::string &value) {
+    size_t processed = 0;
+    const auto bytes = std::stoi(value, &processed);
+    if (processed != value.size() || bytes <= 0 ||
+        bytes > std::numeric_limits<int>::max() - 512) {
+      throw std::invalid_argument(
+          "The Kafka fetch.max.bytes must be between 1 and INT_MAX - 512");
+    }
+    return bytes;
+  }
+
+  static int parse_fetch_max_bytes(int value) {
+    return parse_fetch_max_bytes(std::to_string(value));
+  }
+
   static std::string parse_isolation_level(const std::string &value) {
     if (value == "read_uncommitted" || value == "read_committed") {
       return value;
@@ -305,6 +381,10 @@ private:
     ini_.SetValue("kafka", "token", kafka_configs_.token.c_str());
     ini_.SetLongValue("kafka", "fetch.message.max.bytes",
                       kafka_configs_.fetch_message_max_bytes);
+    ini_.SetLongValue("kafka", "max.partition.fetch.bytes",
+                      kafka_configs_.fetch_message_max_bytes);
+    ini_.SetLongValue("kafka", "fetch.max.bytes",
+                      kafka_configs_.fetch_max_bytes);
     ini_.SetValue("kafka", "isolation.level",
                   kafka_configs_.isolation_level.c_str());
     ini_.SetBoolValue("log", "enabled", log_configs_.enabled);

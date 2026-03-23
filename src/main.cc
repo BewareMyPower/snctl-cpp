@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <algorithm>
 #include <argparse/argparse.hpp>
 #include <cstdlib>
 #include <exception>
@@ -82,9 +83,16 @@ int main(int argc, char *argv[]) noexcept(false) {
   if (auto client_id = program.present("--client-id")) {
     rk_conf_map["client.id"] = client_id.value();
   }
+  const auto effective_fetch_max_bytes =
+      std::max(configs.kafka_configs().fetch_max_bytes,
+               configs.kafka_configs().fetch_message_max_bytes);
   auto consumer_rk_conf_map = rk_conf_map;
   consumer_rk_conf_map["fetch.message.max.bytes"] =
       std::to_string(configs.kafka_configs().fetch_message_max_bytes);
+  consumer_rk_conf_map["fetch.max.bytes"] =
+      std::to_string(effective_fetch_max_bytes);
+  consumer_rk_conf_map["receive.message.max.bytes"] =
+      std::to_string(effective_fetch_max_bytes + 512);
   consumer_rk_conf_map["isolation.level"] =
       configs.kafka_configs().isolation_level;
 
