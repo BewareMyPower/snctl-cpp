@@ -16,6 +16,7 @@
 #pragma once
 
 #include "snctl-cpp/kafka_client.h"
+#include "snctl-cpp/logging.h"
 #include "snctl-cpp/raii_helper.h"
 #include "snctl-cpp/stop_signal.h"
 
@@ -83,10 +84,10 @@ public:
     const auto group_id =
         command_.present("--group").value_or(default_group_id(topic));
 
-    std::cout << "Started " << consumer_count << " consumer"
-              << (consumer_count == 1 ? "" : "s") << " on topic \"" << topic
-              << "\" in group \"" << group_id << "\". Press Ctrl+C to stop."
-              << std::endl;
+    logging::out() << "Started " << consumer_count << " consumer"
+                   << (consumer_count == 1 ? "" : "s") << " on topic \""
+                   << topic << "\" in group \"" << group_id
+                   << "\". Press Ctrl+C to stop.";
 
     StopSignalGuard stop_signal_guard;
     std::atomic<uint64_t> consumed_messages = 0;
@@ -119,18 +120,19 @@ public:
                 std::lock_guard<std::mutex> lock(output_mu);
                 if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS ||
                     err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS) {
-                  std::cout
+                  logging::out()
                       << "consumer[" << consumer_index << "] "
                       << rebalance_action(err)
                       << " partitions: " << format_partitions(partitions)
                       << " (current assignment: " << current_assignment(rk)
-                      << ")" << std::endl;
+                      << ")";
                   return;
                 }
-                std::cerr << "consumer[" << consumer_index
-                          << "] rebalance error: " << rd_kafka_err2str(err)
-                          << " (current assignment: " << current_assignment(rk)
-                          << ")" << std::endl;
+                logging::err()
+                    << "consumer[" << consumer_index
+                    << "] rebalance error: " << rd_kafka_err2str(err)
+                    << " (current assignment: " << current_assignment(rk)
+                    << ")";
               });
 
           auto *subscription = rd_kafka_topic_partition_list_new(1);
@@ -162,8 +164,8 @@ public:
               consumed_bytes += static_cast<uint64_t>(message->len);
             } else if (message->err != RD_KAFKA_RESP_ERR__PARTITION_EOF) {
               std::lock_guard<std::mutex> lock(output_mu);
-              printf("consumer[%d] error: %s\n", consumer_index,
-                     rd_kafka_message_errstr(message));
+              logging::err() << "consumer[" << consumer_index
+                             << "] error: " << rd_kafka_message_errstr(message);
               poll_errors++;
             }
             rd_kafka_message_destroy(message);
@@ -196,9 +198,9 @@ public:
 
       {
         std::lock_guard<std::mutex> lock(output_mu);
-        std::cout << "Consumed " << current_consumed << " messages (" << rate
-                  << " msg/s), bytes: " << current_bytes
-                  << ", poll errors: " << current_errors << std::endl;
+        logging::out() << "Consumed " << current_consumed << " messages ("
+                       << rate << " msg/s), bytes: " << current_bytes
+                       << ", poll errors: " << current_errors;
       }
       previous_consumed = current_consumed;
 
@@ -216,9 +218,10 @@ public:
 
     {
       std::lock_guard<std::mutex> lock(output_mu);
-      std::cout << "Stopped consumers. Consumed " << consumed_messages.load()
-                << " messages, bytes: " << consumed_bytes.load()
-                << ", poll errors: " << poll_errors.load() << std::endl;
+      logging::out() << "Stopped consumers. Consumed "
+                     << consumed_messages.load()
+                     << " messages, bytes: " << consumed_bytes.load()
+                     << ", poll errors: " << poll_errors.load();
     }
 
     if (!errors.empty()) {

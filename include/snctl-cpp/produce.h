@@ -16,6 +16,7 @@
 #pragma once
 
 #include "snctl-cpp/kafka_client.h"
+#include "snctl-cpp/logging.h"
 #include "snctl-cpp/stop_signal.h"
 
 #include <argparse/argparse.hpp>
@@ -93,10 +94,10 @@ public:
       producer_rates[i]++;
     }
 
-    std::cout << "Started " << producer_count << " producer"
-              << (producer_count == 1 ? "" : "s") << " on topic \"" << topic
-              << "\" with total rate " << total_rate << " msg/s. Press Ctrl+C "
-              << "to stop." << std::endl;
+    logging::out() << "Started " << producer_count << " producer"
+                   << (producer_count == 1 ? "" : "s") << " on topic \""
+                   << topic << "\" with total rate " << total_rate
+                   << " msg/s. Press Ctrl+C to stop.";
 
     StopSignalGuard stop_signal_guard;
     std::atomic<uint64_t> produced_messages = 0;
@@ -130,11 +131,13 @@ public:
 
             while (sequence < target_messages &&
                    !StopSignalGuard::is_stop_requested()) {
+              auto key = make_key(producer_index, sequence);
               auto payload =
                   make_payload(producer_index, sequence, message_size);
               const auto err = rd_kafka_producev(
                   client.rk(), RD_KAFKA_V_TOPIC(topic.c_str()),
                   RD_KAFKA_V_MSGFLAGS(RD_KAFKA_MSG_F_COPY),
+                  RD_KAFKA_V_KEY(key.data(), key.size()),
                   RD_KAFKA_V_VALUE(payload.data(), payload.size()),
                   RD_KAFKA_V_END);
               if (err == RD_KAFKA_RESP_ERR_NO_ERROR) {
@@ -160,8 +163,8 @@ public:
 
           rd_kafka_flush(client.rk(), 5000);
         } catch (const std::exception &e) {
-          printf("Producer %d encountered an error: %s\n", producer_index,
-                 e.what());
+          logging::err() << "producer[" << producer_index
+                         << "] encountered an error: " << e.what();
           add_error(e.what());
           StopSignalGuard::request_stop();
         }
@@ -179,8 +182,8 @@ public:
       const auto rate = static_cast<double>(delta) * 1000.0 /
                         static_cast<double>(report_interval_ms);
 
-      std::cout << "Produced " << current_produced << " messages (" << rate
-                << " msg/s), failures: " << current_failed << std::endl;
+      logging::out() << "Produced " << current_produced << " messages (" << rate
+                     << " msg/s), failures: " << current_failed;
       previous_produced = current_produced;
 
       {
@@ -195,8 +198,8 @@ public:
       thread.join();
     }
 
-    std::cout << "Stopped producers. Produced " << produced_messages.load()
-              << " messages, failures: " << failed_messages.load() << std::endl;
+    logging::out() << "Stopped producers. Produced " << produced_messages.load()
+                   << " messages, failures: " << failed_messages.load();
 
     if (!errors.empty()) {
       throw std::runtime_error(errors.front());
@@ -226,5 +229,11 @@ private:
       payload.resize(message_size);
     }
     return payload;
+  }
+
+  static std::string make_key(int producer_index, uint64_t sequence) {
+    std::ostringstream oss;
+    oss << "producer=" << producer_index << " sequence=" << sequence;
+    return oss.str();
   }
 };

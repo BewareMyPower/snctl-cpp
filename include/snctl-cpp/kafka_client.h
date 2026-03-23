@@ -16,10 +16,11 @@
 #pragma once
 
 #include "snctl-cpp/configs.h"
+#include "snctl-cpp/logging.h"
 
 #include <array>
-#include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <librdkafka/rdkafka.h>
 #include <memory>
@@ -37,8 +38,7 @@ public:
               const std::unordered_map<std::string, std::string> &configs,
               const LogConfigs &log_configs, bool with_queue = false,
               RebalanceCallback rebalance_callback = {})
-      : opaque_(std::make_unique<Opaque>()), log_file_(nullptr, &fclose),
-        rk_(nullptr, &rd_kafka_destroy),
+      : opaque_(std::make_unique<Opaque>()), rk_(nullptr, &rd_kafka_destroy),
         queue_(nullptr, &rd_kafka_queue_destroy) {
     std::array<char, 512> errstr;
     auto fail = [&errstr](const std::string &action) {
@@ -68,10 +68,11 @@ public:
     rd_kafka_conf_set_opaque(rk_conf, opaque_.get());
 
     if (log_configs.enabled) {
-      FILE *log_output = stdout;
+      std::ostream *log_output = &std::cout;
       if (!log_configs.path.empty()) {
-        log_file_.reset(fopen(log_configs.path.c_str(), "a"));
-        if (log_file_ == nullptr) {
+        log_file_ =
+            std::make_unique<std::ofstream>(log_configs.path, std::ios::app);
+        if (!log_file_->is_open()) {
           rd_kafka_conf_destroy(rk_conf);
           std::string message = "Failed to open log file: ";
           message += log_configs.path;
@@ -111,7 +112,7 @@ public:
 
 private:
   struct Opaque {
-    FILE *log_output = stdout;
+    std::ostream *log_output = &std::cout;
     RebalanceCallback rebalance_callback;
   };
 
@@ -122,11 +123,12 @@ private:
   static void log_callback(const rd_kafka_t *rk, int level, const char *fac,
                            const char *buf) {
     auto *context = opaque(rk);
-    auto *file = context != nullptr && context->log_output != nullptr
-                     ? context->log_output
-                     : stdout;
-    fprintf(file, "[%d] %s: %s\n", level, fac, buf);
-    fflush(file);
+    auto *output = context != nullptr && context->log_output != nullptr
+                       ? context->log_output
+                       : &std::cout;
+    std::ostringstream oss;
+    oss << '[' << level << "] " << fac << ": " << buf;
+    logging::write_line(*output, oss.str());
   }
 
   static void noop_log_callback(const rd_kafka_t *rk, int level,
@@ -182,9 +184,8 @@ private:
     if (err == RD_KAFKA_RESP_ERR_NO_ERROR) {
       return;
     }
-    fprintf(stderr, "Failed to %s during rebalance: %s\n", action,
-            rd_kafka_err2str(err));
-    fflush(stderr);
+    logging::err() << "Failed to " << action
+                   << " during rebalance: " << rd_kafka_err2str(err);
   }
 
   static void report_rebalance_error(const char *action,
@@ -192,14 +193,13 @@ private:
     if (error == nullptr) {
       return;
     }
-    fprintf(stderr, "Failed to %s during rebalance: %s\n", action,
-            rd_kafka_error_string(error));
-    fflush(stderr);
+    logging::err() << "Failed to " << action
+                   << " during rebalance: " << rd_kafka_error_string(error);
     rd_kafka_error_destroy(error);
   }
 
   std::unique_ptr<Opaque> opaque_;
-  std::unique_ptr<FILE, decltype(&fclose)> log_file_;
+  std::unique_ptr<std::ofstream> log_file_;
   std::unique_ptr<rd_kafka_t, decltype(&rd_kafka_destroy)> rk_;
   std::unique_ptr<rd_kafka_queue_t, decltype(&rd_kafka_queue_destroy)> queue_;
 };

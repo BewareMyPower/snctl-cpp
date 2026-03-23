@@ -28,6 +28,7 @@
 #include "snctl-cpp/consume.h"
 #include "snctl-cpp/groups.h"
 #include "snctl-cpp/kafka_client.h"
+#include "snctl-cpp/logging.h"
 #include "snctl-cpp/produce.h"
 #include "snctl-cpp/topics.h"
 
@@ -61,8 +62,7 @@ int main(int argc, char *argv[]) noexcept(false) {
   try {
     program.parse_args(argc, argv);
   } catch (const std::exception &err) {
-    std::cerr << "Failed to parse args: " << err.what() << "\n"
-              << program << std::endl;
+    logging::err() << "Failed to parse args: " << err.what() << '\n' << program;
     return 1;
   }
   configs.init(program);
@@ -104,17 +104,17 @@ int main(int argc, char *argv[]) noexcept(false) {
       if (program["--get-config"] == true) {
         if (const auto &config_file = configs.config_file();
             config_file.empty()) {
-          std::cerr << "Unexpected empty config file" << std::endl;
+          logging::err() << "Unexpected empty config file";
           return 2;
         }
-        std::cout << "config file: " << configs.config_file() << std::endl;
+        logging::out() << "config file: " << configs.config_file();
         return 0;
       }
-      std::cerr << "Invalid subcommand\n" << program << std::endl;
+      logging::err() << "Invalid subcommand\n" << program;
       return 1;
     }
   } catch (const std::exception &e) {
-    std::cerr << e.what() << std::endl;
+    logging::err() << e.what();
     return 1;
   }
   return 0;
