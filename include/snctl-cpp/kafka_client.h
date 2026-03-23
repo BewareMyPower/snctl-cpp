@@ -42,7 +42,11 @@ public:
         queue_(nullptr, &rd_kafka_queue_destroy) {
     std::array<char, 512> errstr;
     auto fail = [&errstr](const std::string &action) {
-      throw std::runtime_error("Failed to " + action + ": " + errstr.data());
+      std::string message = "Failed to ";
+      message += action;
+      message += ": ";
+      message += errstr.data();
+      throw std::runtime_error(message);
     };
 
     auto *rk_conf = rd_kafka_conf_new();
@@ -50,8 +54,13 @@ public:
       if (rd_kafka_conf_set(rk_conf, key.c_str(), value.c_str(), errstr.data(),
                             errstr.size()) != RD_KAFKA_CONF_OK) {
         rd_kafka_conf_destroy(rk_conf);
-        throw std::runtime_error("Failed to set " + key + " => " + value +
-                                 ": " + errstr.data());
+        std::string message = "Failed to set ";
+        message += key;
+        message += " => ";
+        message += value;
+        message += ": ";
+        message += errstr.data();
+        throw std::runtime_error(message);
       }
     }
 
@@ -64,8 +73,9 @@ public:
         log_file_.reset(fopen(log_configs.path.c_str(), "a"));
         if (log_file_ == nullptr) {
           rd_kafka_conf_destroy(rk_conf);
-          throw std::runtime_error("Failed to open log file: " +
-                                   log_configs.path);
+          std::string message = "Failed to open log file: ";
+          message += log_configs.path;
+          throw std::runtime_error(message);
         }
         log_output = log_file_.get();
       }
