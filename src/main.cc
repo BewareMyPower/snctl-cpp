@@ -75,6 +75,10 @@ int main(int argc, char *argv[]) noexcept(false) {
     rk_conf_map["sasl.username"] = "user";
     rk_conf_map["sasl.password"] = "token:" + token;
   }
+  if (const auto &debug = configs.log_configs().debug; !debug.empty()) {
+    rk_conf_map["debug"] = debug;
+  }
+  rk_conf_map["log_level"] = std::to_string(configs.log_configs().log_level);
   if (auto client_id = program.present("--client-id")) {
     rk_conf_map["client.id"] = client_id.value();
   }

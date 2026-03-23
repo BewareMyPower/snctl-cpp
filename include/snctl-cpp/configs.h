@@ -35,6 +35,10 @@ struct LogConfigs {
   // The file to store logs from rdkafka. If it's empty, the logs will be
   // written to the standard output.
   std::string path = "/tmp/rdkafka.log";
+  // Comma-separated librdkafka debug contexts.
+  std::string debug;
+  // librdkafka log level, following syslog(3) levels.
+  int log_level = 6;
 };
 
 class Configs : public SubCommand {
@@ -44,6 +48,10 @@ public:
     update_command_.add_argument("--kafka-url")
         .help("The Kafka bootstrap.servers");
     update_command_.add_argument("--kafka-token").help("The Kafka token");
+    update_command_.add_argument("--log-debug")
+        .help("Comma-separated librdkafka debug contexts");
+    update_command_.add_argument("--log-level")
+        .help("librdkafka log level (0-7)");
 
     add_child(update_command_);
     attach_parent(parent);
@@ -94,6 +102,35 @@ public:
           std::cout << "Updated token" << std::endl;
         } else {
           std::cout << "The provided token is the same with the config in "
+                    << config_file_ << std::endl;
+        }
+      }
+      if (update_command_.present("--log-debug")) {
+        auto value = update_command_.get("--log-debug");
+        if (value != log_configs_.debug) {
+          log_configs_.debug = value;
+          updated = true;
+          if (value.empty()) {
+            std::cout << "Cleared librdkafka debug contexts" << std::endl;
+          } else {
+            std::cout << "Updated librdkafka debug contexts to " << value
+                      << std::endl;
+          }
+        } else {
+          std::cout << "The provided librdkafka debug contexts are the same "
+                       "with the config in "
+                    << config_file_ << std::endl;
+        }
+      }
+      if (update_command_.present("--log-level")) {
+        auto value = parse_log_level(update_command_.get("--log-level"));
+        if (value != log_configs_.log_level) {
+          log_configs_.log_level = value;
+          updated = true;
+          std::cout << "Updated librdkafka log level to " << value << std::endl;
+        } else {
+          std::cout << "The provided librdkafka log level is the same with "
+                       "the config in "
                     << config_file_ << std::endl;
         }
       }
@@ -155,10 +192,20 @@ private:
     }
     if (auto value = get_value("log", "enabled"); value) {
       log_configs_.enabled = std::string(*value) != "false";
-      if (log_configs_.enabled) {
-        if (auto value = get_value("log", "path"); value) {
-          log_configs_.path = *value;
-        }
+    }
+    if (auto value = get_value("log", "path"); value) {
+      log_configs_.path = *value;
+    }
+    if (auto value = get_value("log", "debug"); value) {
+      log_configs_.debug = *value;
+    }
+    if (auto value = get_value("log", "log_level"); value) {
+      try {
+        log_configs_.log_level = parse_log_level(*value);
+      } catch (const std::exception &) {
+        std::cerr << "Invalid log.log_level '" << *value
+                  << "'. Use the default value: " << log_configs_.log_level
+                  << std::endl;
       }
     }
 
@@ -166,14 +213,24 @@ private:
     return true;
   }
 
+  static int parse_log_level(const std::string &value) {
+    size_t processed = 0;
+    const auto log_level = std::stoi(value, &processed);
+    if (processed != value.size() || log_level < 0 || log_level > 7) {
+      throw std::invalid_argument(
+          "The librdkafka log level must be between 0 and 7");
+    }
+    return log_level;
+  }
+
   void save_file() {
     ini_.SetValue("kafka", "bootstrap.servers",
                   kafka_configs_.bootstrap_servers.c_str());
     ini_.SetValue("kafka", "token", kafka_configs_.token.c_str());
     ini_.SetBoolValue("log", "enabled", log_configs_.enabled);
-    if (log_configs_.enabled) {
-      ini_.SetValue("log", "path", log_configs_.path.c_str());
-    }
+    ini_.SetValue("log", "path", log_configs_.path.c_str());
+    ini_.SetValue("log", "debug", log_configs_.debug.c_str());
+    ini_.SetLongValue("log", "log_level", log_configs_.log_level);
     ini_.SaveFile(config_file_.c_str());
   }
 };

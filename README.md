@@ -196,6 +196,11 @@ By default, rdkafka will generate logs to the standard output. `snctl-cpp` can r
 [log]
 enabled = true
 path = /tmp/rdkafka.log
+debug = broker,protocol,metadata
+log_level = 7
 ```
 
-The logs will be appended to the `/tmp/rdkafka.log` file. If you don't want to generate any log from rdkafka, you can configure `enabled` with `false`.
+The logs will be appended to the `/tmp/rdkafka.log` file. `debug` maps to
+librdkafka's comma-separated debug contexts, and `log_level` maps to
+librdkafka's syslog-style numeric log level. If you don't want to generate any
+log from rdkafka, you can configure `enabled` with `false`.
