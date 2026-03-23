@@ -139,6 +139,8 @@ public:
               consumed_messages++;
               consumed_bytes += static_cast<uint64_t>(message->len);
             } else if (message->err != RD_KAFKA_RESP_ERR__PARTITION_EOF) {
+              printf("consumer[%d] error: %s\n", consumer_index,
+                     rd_kafka_message_errstr(message));
               poll_errors++;
             }
             rd_kafka_message_destroy(message);

@@ -160,6 +160,8 @@ public:
 
           rd_kafka_flush(client.rk(), 5000);
         } catch (const std::exception &e) {
+          printf("Producer %d encountered an error: %s\n", producer_index,
+                 e.what());
           add_error(e.what());
           StopSignalGuard::request_stop();
         }
