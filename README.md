@@ -156,6 +156,38 @@ Offsets info for group 'sub' with 4 topic-partitions:
 | test-3 | 0 | 0 | 0 |
 ```
 
+## Traffic
+
+### Produce messages
+
+Create multiple producers on a topic and split the configured total rate across
+them:
+
+```bash
+$ snctl-cpp produce my-topic -n 4 --rate 1000
+Started 4 producers on topic "my-topic" with total rate 1000 msg/s. Press Ctrl+C to stop.
+Produced 1002 messages (1002 msg/s), failures: 0
+...
+```
+
+Use `--message-size` to control the payload size in bytes. The default is 1024
+bytes.
+
+### Consume messages
+
+Create multiple consumers on a topic:
+
+```bash
+$ snctl-cpp consume my-topic -n 4 --group my-group
+Started 4 consumers on topic "my-topic" in group "my-group". Press Ctrl+C to stop.
+Consumed 1000 messages (1000 msg/s), bytes: 1024000, poll errors: 0
+...
+```
+
+If `--group` is not provided, `snctl-cpp` generates one automatically. The
+default offset reset policy is `earliest`, which can be changed with
+`--offset-reset latest`.
+
 ## Logging
 
 By default, rdkafka will generate logs to the standard output. `snctl-cpp` can redirect the logs to a file. For example, with the following configs in `sncloud.ini`:

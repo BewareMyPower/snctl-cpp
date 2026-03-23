@@ -14,22 +14,21 @@
  * limitations under the License.
  */
 #include <argparse/argparse.hpp>
-#include <array>
-#include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <iostream>
 #include <librdkafka/rdkafka.h>
-#include <memory>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include "snctl-cpp/configs.h"
+#include "snctl-cpp/consume.h"
 #include "snctl-cpp/groups.h"
-#include "snctl-cpp/raii_helper.h"
+#include "snctl-cpp/kafka_client.h"
+#include "snctl-cpp/produce.h"
 #include "snctl-cpp/topics.h"
 
 int main(int argc, char *argv[]) noexcept(false) {
@@ -57,6 +56,8 @@ int main(int argc, char *argv[]) noexcept(false) {
   Topics topics{program};
   Configs configs{program};
   Groups groups{program};
+  ProduceCommand produce{program};
+  ConsumeCommand consume{program};
   try {
     program.parse_args(argc, argv);
   } catch (const std::exception &err) {
@@ -64,14 +65,6 @@ int main(int argc, char *argv[]) noexcept(false) {
               << program << std::endl;
     return 1;
   }
-
-  auto *rk_conf = rd_kafka_conf_new();
-
-  std::array<char, 512> errstr;
-  auto fail = [&errstr](const std::string &action) {
-    throw std::runtime_error("Failed to " + action + ": " + errstr.data());
-  };
-
   configs.init(program);
   std::unordered_map<std::string, std::string> rk_conf_map{
       {"bootstrap.servers", configs.kafka_configs().bootstrap_servers}};
@@ -85,53 +78,24 @@ int main(int argc, char *argv[]) noexcept(false) {
   if (auto client_id = program.present("--client-id")) {
     rk_conf_map["client.id"] = client_id.value();
   }
-  for (auto &&[key, value] : rk_conf_map) {
-    if (rd_kafka_conf_set(rk_conf, key.c_str(), value.c_str(), errstr.data(),
-                          errstr.size()) != RD_KAFKA_CONF_OK) {
-      std::string err_msg = "set " + key;
-      err_msg += " => " + value;
-      fail(err_msg);
-    }
-  }
-
-  std::unique_ptr<FILE, decltype(&fclose)> file{nullptr, &fclose};
-  if (configs.log_configs().enabled) {
-    if (const auto &log_file = configs.log_configs().path; log_file.empty()) {
-      rd_kafka_conf_set_opaque(rk_conf, stdout);
-    } else {
-      file.reset(fopen(log_file.c_str(), "a"));
-      rd_kafka_conf_set_opaque(rk_conf, file.get());
-      rd_kafka_conf_set_log_cb(
-          rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
-                       const char *buf) {
-            auto *file = static_cast<FILE *>(rd_kafka_opaque(rk));
-            fprintf(file, "[%d] %s: %s\n", level, fac, buf);
-            fflush(file);
-          });
-    }
-  } else { // Disable logging in rdkafka
-    rd_kafka_conf_set_log_cb(
-        rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
-                     const char *buf) {});
-  }
-
-  auto *rk =
-      rd_kafka_new(RD_KAFKA_PRODUCER, rk_conf, errstr.data(), errstr.size());
-  if (rk == nullptr) {
-    fail("create producer");
-  }
-  GUARD(rk, rd_kafka_destroy);
-
-  auto *rkqu = rd_kafka_queue_new(rk);
-  GUARD(rkqu, rd_kafka_queue_destroy);
 
   try {
     if (topics.used_by_parent(program)) {
-      topics.run(rk, rkqu);
+      KafkaClient client(RD_KAFKA_CONSUMER, rk_conf_map, configs.log_configs(),
+                         true);
+      topics.run(client.rk(), client.queue());
     } else if (configs.used_by_parent(program)) {
       configs.run();
     } else if (groups.used_by_parent(program)) {
-      groups.run(rk, rkqu);
+      KafkaClient client(RD_KAFKA_CONSUMER, rk_conf_map, configs.log_configs(),
+                         true);
+      groups.run(client.rk(), client.queue());
+    } else if (produce.used_by_parent(program)) {
+      produce.run(rk_conf_map, configs.log_configs(),
+                  program.present("--client-id"));
+    } else if (consume.used_by_parent(program)) {
+      consume.run(rk_conf_map, configs.log_configs(),
+                  program.present("--client-id"));
     } else {
       if (program["--get-config"] == true) {
         if (const auto &config_file = configs.config_file();

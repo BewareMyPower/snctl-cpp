@@ -37,7 +37,9 @@ include_directories("${CMAKE_SOURCE_DIR}/include" ${SIMPLEINI_INCLUDE_DIRS})
 
 find_package(RdKafka CONFIG REQUIRED)
 find_package(argparse CONFIG REQUIRED)
+find_package(Threads REQUIRED)
 
 add_executable(snctl-cpp src/main.cc)
 target_compile_definitions(snctl-cpp PUBLIC VERSION_STR="${VERSION_STR}")
-target_link_libraries(snctl-cpp PRIVATE argparse::argparse RdKafka::rdkafka)
+target_link_libraries(snctl-cpp PRIVATE argparse::argparse RdKafka::rdkafka
+                                        Threads::Threads)
