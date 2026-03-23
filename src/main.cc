@@ -82,23 +82,28 @@ int main(int argc, char *argv[]) noexcept(false) {
   if (auto client_id = program.present("--client-id")) {
     rk_conf_map["client.id"] = client_id.value();
   }
+  auto consumer_rk_conf_map = rk_conf_map;
+  consumer_rk_conf_map["fetch.message.max.bytes"] =
+      std::to_string(configs.kafka_configs().fetch_message_max_bytes);
+  consumer_rk_conf_map["isolation.level"] =
+      configs.kafka_configs().isolation_level;
 
   try {
     if (topics.used_by_parent(program)) {
-      KafkaClient client(RD_KAFKA_CONSUMER, rk_conf_map, configs.log_configs(),
-                         true);
+      KafkaClient client(RD_KAFKA_CONSUMER, consumer_rk_conf_map,
+                         configs.log_configs(), true);
       topics.run(client.rk(), client.queue());
     } else if (configs.used_by_parent(program)) {
       configs.run();
     } else if (groups.used_by_parent(program)) {
-      KafkaClient client(RD_KAFKA_CONSUMER, rk_conf_map, configs.log_configs(),
-                         true);
+      KafkaClient client(RD_KAFKA_CONSUMER, consumer_rk_conf_map,
+                         configs.log_configs(), true);
       groups.run(client.rk(), client.queue());
     } else if (produce.used_by_parent(program)) {
       produce.run(rk_conf_map, configs.log_configs(),
                   program.present("--client-id"));
     } else if (consume.used_by_parent(program)) {
-      consume.run(rk_conf_map, configs.log_configs(),
+      consume.run(consumer_rk_conf_map, configs.log_configs(),
                   program.present("--client-id"));
     } else {
       if (program["--get-config"] == true) {

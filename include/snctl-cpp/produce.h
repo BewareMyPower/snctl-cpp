@@ -100,8 +100,11 @@ public:
                    << " msg/s. Press Ctrl+C to stop.";
 
     StopSignalGuard stop_signal_guard;
-    std::atomic<uint64_t> produced_messages = 0;
-    std::atomic<uint64_t> failed_messages = 0;
+    std::atomic<uint64_t> enqueued_messages = 0;
+    std::atomic<uint64_t> enqueue_failures = 0;
+    std::atomic<uint64_t> completed_messages = 0;
+    std::atomic<uint64_t> delivered_messages = 0;
+    std::atomic<uint64_t> delivery_failures = 0;
     std::vector<std::thread> threads;
     std::mutex errors_mu;
     std::vector<std::string> errors;
@@ -119,7 +122,17 @@ public:
           auto client_configs = base_configs;
           client_configs["client.id"] =
               make_client_id(client_id_base, producer_index);
-          KafkaClient client(RD_KAFKA_PRODUCER, client_configs, log_configs);
+          KafkaClient client(
+              RD_KAFKA_PRODUCER, client_configs, log_configs, false, {},
+              [&completed_messages, &delivered_messages,
+               &delivery_failures](const rd_kafka_message_t *message) {
+                completed_messages++;
+                if (message->err == RD_KAFKA_RESP_ERR_NO_ERROR) {
+                  delivered_messages++;
+                } else {
+                  delivery_failures++;
+                }
+              });
           const auto start = std::chrono::steady_clock::now();
           uint64_t sequence = 0;
 
@@ -142,7 +155,7 @@ public:
                   RD_KAFKA_V_END);
               if (err == RD_KAFKA_RESP_ERR_NO_ERROR) {
                 sequence++;
-                produced_messages++;
+                enqueued_messages++;
                 continue;
               }
 
@@ -151,7 +164,7 @@ public:
                 continue;
               }
 
-              failed_messages++;
+              enqueue_failures++;
               throw std::runtime_error("producer[" +
                                        std::to_string(producer_index) +
                                        "] failed: " + rd_kafka_err2str(err));
@@ -172,19 +185,32 @@ public:
     }
 
     const auto report_interval = std::chrono::milliseconds(report_interval_ms);
-    uint64_t previous_produced = 0;
+    uint64_t previous_enqueued = 0;
+    uint64_t previous_completed = 0;
     while (!StopSignalGuard::is_stop_requested()) {
       std::this_thread::sleep_for(report_interval);
 
-      const auto current_produced = produced_messages.load();
-      const auto current_failed = failed_messages.load();
-      const auto delta = current_produced - previous_produced;
-      const auto rate = static_cast<double>(delta) * 1000.0 /
-                        static_cast<double>(report_interval_ms);
+      const auto current_enqueued = enqueued_messages.load();
+      const auto current_enqueue_failures = enqueue_failures.load();
+      const auto current_completed = completed_messages.load();
+      const auto current_delivered = delivered_messages.load();
+      const auto current_delivery_failures = delivery_failures.load();
+      const auto enqueued_delta = current_enqueued - previous_enqueued;
+      const auto completed_delta = current_completed - previous_completed;
+      const auto enqueued_rate = static_cast<double>(enqueued_delta) * 1000.0 /
+                                 static_cast<double>(report_interval_ms);
+      const auto completed_rate = static_cast<double>(completed_delta) *
+                                  1000.0 /
+                                  static_cast<double>(report_interval_ms);
 
-      logging::out() << "Produced " << current_produced << " messages (" << rate
-                     << " msg/s), failures: " << current_failed;
-      previous_produced = current_produced;
+      logging::out() << "Enqueued " << current_enqueued << " messages ("
+                     << enqueued_rate << " msg/s), completed "
+                     << current_completed << " messages (" << completed_rate
+                     << " msg/s), delivered: " << current_delivered
+                     << ", enqueue failures: " << current_enqueue_failures
+                     << ", delivery failures: " << current_delivery_failures;
+      previous_enqueued = current_enqueued;
+      previous_completed = current_completed;
 
       {
         std::lock_guard<std::mutex> lock(errors_mu);
@@ -198,8 +224,11 @@ public:
       thread.join();
     }
 
-    logging::out() << "Stopped producers. Produced " << produced_messages.load()
-                   << " messages, failures: " << failed_messages.load();
+    logging::out() << "Stopped producers. Enqueued " << enqueued_messages.load()
+                   << " messages, completed " << completed_messages.load()
+                   << " messages, delivered: " << delivered_messages.load()
+                   << ", enqueue failures: " << enqueue_failures.load()
+                   << ", delivery failures: " << delivery_failures.load();
 
     if (!errors.empty()) {
       throw std::runtime_error(errors.front());

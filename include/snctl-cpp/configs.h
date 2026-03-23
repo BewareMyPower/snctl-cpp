@@ -27,6 +27,8 @@
 struct KafkaConfigs {
   std::string bootstrap_servers = "localhost:9092";
   std::string token;
+  int fetch_message_max_bytes = 50 * 1024 * 1024;
+  std::string isolation_level = "read_uncommitted";
 };
 
 struct LogConfigs {
@@ -48,6 +50,11 @@ public:
     update_command_.add_argument("--kafka-url")
         .help("The Kafka bootstrap.servers");
     update_command_.add_argument("--kafka-token").help("The Kafka token");
+    update_command_.add_argument("--kafka-fetch-message-max-bytes")
+        .help("The Kafka fetch.message.max.bytes")
+        .scan<'i', int>();
+    update_command_.add_argument("--kafka-isolation-level")
+        .help("The Kafka isolation.level");
     update_command_.add_argument("--log-debug")
         .help("Comma-separated librdkafka debug contexts");
     update_command_.add_argument("--log-level")
@@ -102,6 +109,33 @@ public:
           std::cout << "Updated token" << std::endl;
         } else {
           std::cout << "The provided token is the same with the config in "
+                    << config_file_ << std::endl;
+        }
+      }
+      if (update_command_.present("--kafka-fetch-message-max-bytes")) {
+        auto value = parse_fetch_message_max_bytes(
+            update_command_.get<int>("--kafka-fetch-message-max-bytes"));
+        if (value != kafka_configs_.fetch_message_max_bytes) {
+          kafka_configs_.fetch_message_max_bytes = value;
+          updated = true;
+          std::cout << "Updated fetch.message.max.bytes to " << value
+                    << std::endl;
+        } else {
+          std::cout << "The provided fetch.message.max.bytes is the same with "
+                       "the config in "
+                    << config_file_ << std::endl;
+        }
+      }
+      if (update_command_.present("--kafka-isolation-level")) {
+        auto value = parse_isolation_level(
+            update_command_.get("--kafka-isolation-level"));
+        if (value != kafka_configs_.isolation_level) {
+          kafka_configs_.isolation_level = value;
+          updated = true;
+          std::cout << "Updated isolation.level to " << value << std::endl;
+        } else {
+          std::cout << "The provided isolation.level is the same with the "
+                       "config in "
                     << config_file_ << std::endl;
         }
       }
@@ -190,6 +224,25 @@ private:
     if (auto value = get_value("kafka", "token"); value) {
       kafka_configs_.token = *value;
     }
+    if (auto value = get_value("kafka", "fetch.message.max.bytes"); value) {
+      try {
+        kafka_configs_.fetch_message_max_bytes =
+            parse_fetch_message_max_bytes(*value);
+      } catch (const std::exception &) {
+        std::cerr << "Invalid kafka.fetch.message.max.bytes '" << *value
+                  << "'. Use the default value: "
+                  << kafka_configs_.fetch_message_max_bytes << std::endl;
+      }
+    }
+    if (auto value = get_value("kafka", "isolation.level"); value) {
+      try {
+        kafka_configs_.isolation_level = parse_isolation_level(*value);
+      } catch (const std::exception &) {
+        std::cerr << "Invalid kafka.isolation.level '" << *value
+                  << "'. Use the default value: "
+                  << kafka_configs_.isolation_level << std::endl;
+      }
+    }
     if (auto value = get_value("log", "enabled"); value) {
       log_configs_.enabled = std::string(*value) != "false";
     }
@@ -223,10 +276,37 @@ private:
     return log_level;
   }
 
+  static int parse_fetch_message_max_bytes(const std::string &value) {
+    size_t processed = 0;
+    const auto bytes = std::stoi(value, &processed);
+    if (processed != value.size() || bytes <= 0) {
+      throw std::invalid_argument(
+          "The Kafka fetch.message.max.bytes must be greater than 0");
+    }
+    return bytes;
+  }
+
+  static int parse_fetch_message_max_bytes(int value) {
+    return parse_fetch_message_max_bytes(std::to_string(value));
+  }
+
+  static std::string parse_isolation_level(const std::string &value) {
+    if (value == "read_uncommitted" || value == "read_committed") {
+      return value;
+    }
+    throw std::invalid_argument(
+        "The Kafka isolation.level must be read_uncommitted or "
+        "read_committed");
+  }
+
   void save_file() {
     ini_.SetValue("kafka", "bootstrap.servers",
                   kafka_configs_.bootstrap_servers.c_str());
     ini_.SetValue("kafka", "token", kafka_configs_.token.c_str());
+    ini_.SetLongValue("kafka", "fetch.message.max.bytes",
+                      kafka_configs_.fetch_message_max_bytes);
+    ini_.SetValue("kafka", "isolation.level",
+                  kafka_configs_.isolation_level.c_str());
     ini_.SetBoolValue("log", "enabled", log_configs_.enabled);
     ini_.SetValue("log", "path", log_configs_.path.c_str());
     ini_.SetValue("log", "debug", log_configs_.debug.c_str());

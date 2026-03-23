@@ -30,6 +30,8 @@
 
 class KafkaClient final {
 public:
+  using DeliveryReportCallback =
+      std::function<void(const rd_kafka_message_t *message)>;
   using RebalanceCallback =
       std::function<void(rd_kafka_t *rk, rd_kafka_resp_err_t err,
                          const rd_kafka_topic_partition_list_t *partitions)>;
@@ -37,7 +39,8 @@ public:
   KafkaClient(rd_kafka_type_t type,
               const std::unordered_map<std::string, std::string> &configs,
               const LogConfigs &log_configs, bool with_queue = false,
-              RebalanceCallback rebalance_callback = {})
+              RebalanceCallback rebalance_callback = {},
+              DeliveryReportCallback delivery_report_callback = {})
       : opaque_(std::make_unique<Opaque>()), rk_(nullptr, &rd_kafka_destroy),
         queue_(nullptr, &rd_kafka_queue_destroy) {
     std::array<char, 512> errstr;
@@ -65,6 +68,7 @@ public:
     }
 
     opaque_->rebalance_callback = std::move(rebalance_callback);
+    opaque_->delivery_report_callback = std::move(delivery_report_callback);
     rd_kafka_conf_set_opaque(rk_conf, opaque_.get());
 
     if (log_configs.enabled) {
@@ -88,6 +92,10 @@ public:
 
     if (opaque_->rebalance_callback) {
       rd_kafka_conf_set_rebalance_cb(rk_conf, &KafkaClient::rebalance_callback);
+    }
+    if (opaque_->delivery_report_callback) {
+      rd_kafka_conf_set_dr_msg_cb(rk_conf,
+                                  &KafkaClient::delivery_report_callback);
     }
 
     auto *rk = rd_kafka_new(type, rk_conf, errstr.data(), errstr.size());
@@ -114,6 +122,7 @@ private:
   struct Opaque {
     std::ostream *log_output = &std::cout;
     RebalanceCallback rebalance_callback;
+    DeliveryReportCallback delivery_report_callback;
   };
 
   static Opaque *opaque(const rd_kafka_t *rk) noexcept {
@@ -133,6 +142,15 @@ private:
 
   static void noop_log_callback(const rd_kafka_t *rk, int level,
                                 const char *fac, const char *buf) {}
+
+  static void delivery_report_callback(rd_kafka_t *rk,
+                                       const rd_kafka_message_t *message,
+                                       void *opaque_ptr) {
+    auto *context = static_cast<Opaque *>(opaque_ptr);
+    if (context != nullptr && context->delivery_report_callback) {
+      context->delivery_report_callback(message);
+    }
+  }
 
   static void rebalance_callback(rd_kafka_t *rk, rd_kafka_resp_err_t err,
                                  rd_kafka_topic_partition_list_t *partitions,
