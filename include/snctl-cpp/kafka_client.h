@@ -19,6 +19,8 @@
 
 #include <array>
 #include <cstdio>
+#include <cstring>
+#include <functional>
 #include <librdkafka/rdkafka.h>
 #include <memory>
 #include <stdexcept>
@@ -27,10 +29,16 @@
 
 class KafkaClient final {
 public:
+  using RebalanceCallback =
+      std::function<void(rd_kafka_t *rk, rd_kafka_resp_err_t err,
+                         const rd_kafka_topic_partition_list_t *partitions)>;
+
   KafkaClient(rd_kafka_type_t type,
               const std::unordered_map<std::string, std::string> &configs,
-              const LogConfigs &log_configs, bool with_queue = false)
-      : log_file_(nullptr, &fclose), rk_(nullptr, &rd_kafka_destroy),
+              const LogConfigs &log_configs, bool with_queue = false,
+              RebalanceCallback rebalance_callback = {})
+      : opaque_(std::make_unique<Opaque>()), log_file_(nullptr, &fclose),
+        rk_(nullptr, &rd_kafka_destroy),
         queue_(nullptr, &rd_kafka_queue_destroy) {
     std::array<char, 512> errstr;
     auto fail = [&errstr](const std::string &action) {
@@ -47,6 +55,9 @@ public:
       }
     }
 
+    opaque_->rebalance_callback = std::move(rebalance_callback);
+    rd_kafka_conf_set_opaque(rk_conf, opaque_.get());
+
     if (log_configs.enabled) {
       FILE *log_output = stdout;
       if (!log_configs.path.empty()) {
@@ -58,18 +69,14 @@ public:
         }
         log_output = log_file_.get();
       }
-      rd_kafka_conf_set_opaque(rk_conf, log_output);
-      rd_kafka_conf_set_log_cb(
-          rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
-                       const char *buf) {
-            auto *file = static_cast<FILE *>(rd_kafka_opaque(rk));
-            fprintf(file, "[%d] %s: %s\n", level, fac, buf);
-            fflush(file);
-          });
+      opaque_->log_output = log_output;
+      rd_kafka_conf_set_log_cb(rk_conf, &KafkaClient::log_callback);
     } else {
-      rd_kafka_conf_set_log_cb(
-          rk_conf, +[](const rd_kafka_t *rk, int level, const char *fac,
-                       const char *buf) {});
+      rd_kafka_conf_set_log_cb(rk_conf, &KafkaClient::noop_log_callback);
+    }
+
+    if (opaque_->rebalance_callback) {
+      rd_kafka_conf_set_rebalance_cb(rk_conf, &KafkaClient::rebalance_callback);
     }
 
     auto *rk = rd_kafka_new(type, rk_conf, errstr.data(), errstr.size());
@@ -93,6 +100,95 @@ public:
   auto queue() const noexcept { return queue_.get(); }
 
 private:
+  struct Opaque {
+    FILE *log_output = stdout;
+    RebalanceCallback rebalance_callback;
+  };
+
+  static Opaque *opaque(const rd_kafka_t *rk) noexcept {
+    return static_cast<Opaque *>(rd_kafka_opaque(rk));
+  }
+
+  static void log_callback(const rd_kafka_t *rk, int level, const char *fac,
+                           const char *buf) {
+    auto *context = opaque(rk);
+    auto *file = context != nullptr && context->log_output != nullptr
+                     ? context->log_output
+                     : stdout;
+    fprintf(file, "[%d] %s: %s\n", level, fac, buf);
+    fflush(file);
+  }
+
+  static void noop_log_callback(const rd_kafka_t *rk, int level,
+                                const char *fac, const char *buf) {}
+
+  static void rebalance_callback(rd_kafka_t *rk, rd_kafka_resp_err_t err,
+                                 rd_kafka_topic_partition_list_t *partitions,
+                                 void *opaque_ptr) {
+    sync_rebalance_state(rk, err, partitions);
+    auto *context = static_cast<Opaque *>(opaque_ptr);
+    if (context != nullptr && context->rebalance_callback) {
+      context->rebalance_callback(rk, err, partitions);
+    }
+  }
+
+  static bool use_cooperative_rebalancing(rd_kafka_t *rk) noexcept {
+    const auto *protocol = rd_kafka_rebalance_protocol(rk);
+    return protocol != nullptr && std::strcmp(protocol, "COOPERATIVE") == 0;
+  }
+
+  static void
+  sync_rebalance_state(rd_kafka_t *rk, rd_kafka_resp_err_t err,
+                       const rd_kafka_topic_partition_list_t *partitions) {
+    switch (err) {
+    case RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS:
+      if (use_cooperative_rebalancing(rk)) {
+        report_rebalance_error("incrementally assign partitions",
+                               rd_kafka_incremental_assign(rk, partitions));
+      } else {
+        report_rebalance_error("assign partitions",
+                               rd_kafka_assign(rk, partitions));
+      }
+      break;
+
+    case RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS:
+      if (use_cooperative_rebalancing(rk)) {
+        report_rebalance_error("incrementally unassign partitions",
+                               rd_kafka_incremental_unassign(rk, partitions));
+      } else {
+        report_rebalance_error("clear assignment",
+                               rd_kafka_assign(rk, nullptr));
+      }
+      break;
+
+    default:
+      report_rebalance_error("clear assignment", rd_kafka_assign(rk, nullptr));
+      break;
+    }
+  }
+
+  static void report_rebalance_error(const char *action,
+                                     rd_kafka_resp_err_t err) {
+    if (err == RD_KAFKA_RESP_ERR_NO_ERROR) {
+      return;
+    }
+    fprintf(stderr, "Failed to %s during rebalance: %s\n", action,
+            rd_kafka_err2str(err));
+    fflush(stderr);
+  }
+
+  static void report_rebalance_error(const char *action,
+                                     rd_kafka_error_t *error) {
+    if (error == nullptr) {
+      return;
+    }
+    fprintf(stderr, "Failed to %s during rebalance: %s\n", action,
+            rd_kafka_error_string(error));
+    fflush(stderr);
+    rd_kafka_error_destroy(error);
+  }
+
+  std::unique_ptr<Opaque> opaque_;
   std::unique_ptr<FILE, decltype(&fclose)> log_file_;
   std::unique_ptr<rd_kafka_t, decltype(&rd_kafka_destroy)> rk_;
   std::unique_ptr<rd_kafka_queue_t, decltype(&rd_kafka_queue_destroy)> queue_;

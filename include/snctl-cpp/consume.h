@@ -27,6 +27,7 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -93,6 +94,7 @@ public:
     std::atomic<uint64_t> poll_errors = 0;
     std::vector<std::thread> threads;
     std::mutex errors_mu;
+    std::mutex output_mu;
     std::vector<std::string> errors;
 
     auto add_error = [&errors_mu, &errors](std::string message) {
@@ -109,7 +111,27 @@ public:
           client_configs["client.id"] =
               make_client_id(client_id_base, group_id, consumer_index);
           client_configs["auto.offset.reset"] = offset_reset;
-          KafkaClient client(RD_KAFKA_CONSUMER, client_configs, log_configs);
+          KafkaClient client(
+              RD_KAFKA_CONSUMER, client_configs, log_configs, false,
+              [&output_mu, consumer_index](
+                  rd_kafka_t *rk, rd_kafka_resp_err_t err,
+                  const rd_kafka_topic_partition_list_t *partitions) {
+                std::lock_guard<std::mutex> lock(output_mu);
+                if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS ||
+                    err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS) {
+                  std::cout
+                      << "consumer[" << consumer_index << "] "
+                      << rebalance_action(err)
+                      << " partitions: " << format_partitions(partitions)
+                      << " (current assignment: " << current_assignment(rk)
+                      << ")" << std::endl;
+                  return;
+                }
+                std::cerr << "consumer[" << consumer_index
+                          << "] rebalance error: " << rd_kafka_err2str(err)
+                          << " (current assignment: " << current_assignment(rk)
+                          << ")" << std::endl;
+              });
 
           auto *subscription = rd_kafka_topic_partition_list_new(1);
           if (subscription == nullptr) {
@@ -139,6 +161,7 @@ public:
               consumed_messages++;
               consumed_bytes += static_cast<uint64_t>(message->len);
             } else if (message->err != RD_KAFKA_RESP_ERR__PARTITION_EOF) {
+              std::lock_guard<std::mutex> lock(output_mu);
               printf("consumer[%d] error: %s\n", consumer_index,
                      rd_kafka_message_errstr(message));
               poll_errors++;
@@ -171,9 +194,12 @@ public:
       const auto rate = static_cast<double>(delta) * 1000.0 /
                         static_cast<double>(report_interval_ms);
 
-      std::cout << "Consumed " << current_consumed << " messages (" << rate
-                << " msg/s), bytes: " << current_bytes
-                << ", poll errors: " << current_errors << std::endl;
+      {
+        std::lock_guard<std::mutex> lock(output_mu);
+        std::cout << "Consumed " << current_consumed << " messages (" << rate
+                  << " msg/s), bytes: " << current_bytes
+                  << ", poll errors: " << current_errors << std::endl;
+      }
       previous_consumed = current_consumed;
 
       {
@@ -188,9 +214,12 @@ public:
       thread.join();
     }
 
-    std::cout << "Stopped consumers. Consumed " << consumed_messages.load()
-              << " messages, bytes: " << consumed_bytes.load()
-              << ", poll errors: " << poll_errors.load() << std::endl;
+    {
+      std::lock_guard<std::mutex> lock(output_mu);
+      std::cout << "Stopped consumers. Consumed " << consumed_messages.load()
+                << " messages, bytes: " << consumed_bytes.load()
+                << ", poll errors: " << poll_errors.load() << std::endl;
+    }
 
     if (!errors.empty()) {
       throw std::runtime_error(errors.front());
@@ -211,5 +240,44 @@ private:
       return *client_id_base + "-consumer-" + std::to_string(consumer_index);
     }
     return group_id + "-consumer-" + std::to_string(consumer_index);
+  }
+
+  static const char *rebalance_action(rd_kafka_resp_err_t err) noexcept {
+    switch (err) {
+    case RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS:
+      return "assigned";
+    case RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS:
+      return "revoked";
+    default:
+      return "handled";
+    }
+  }
+
+  static std::string
+  format_partitions(const rd_kafka_topic_partition_list_t *partitions) {
+    if (partitions == nullptr || partitions->cnt == 0) {
+      return "(none)";
+    }
+
+    std::ostringstream oss;
+    for (int i = 0; i < partitions->cnt; i++) {
+      if (i > 0) {
+        oss << ", ";
+      }
+      const auto &partition = partitions->elems[i];
+      oss << partition.topic << "[" << partition.partition << "]";
+    }
+    return oss.str();
+  }
+
+  static std::string current_assignment(rd_kafka_t *rk) {
+    rd_kafka_topic_partition_list_t *assignment = nullptr;
+    const auto err = rd_kafka_assignment(rk, &assignment);
+    if (err != RD_KAFKA_RESP_ERR_NO_ERROR) {
+      return std::string("<failed to query assignment: ") +
+             rd_kafka_err2str(err) + ">";
+    }
+    GUARD(assignment, rd_kafka_topic_partition_list_destroy);
+    return format_partitions(assignment);
   }
 };
