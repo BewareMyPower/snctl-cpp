@@ -52,6 +52,10 @@ public:
         .help("Stats report interval in milliseconds")
         .scan<'i', int>()
         .default_value(1000);
+    command_.add_argument("--debug")
+        .default_value(false)
+        .implicit_value(true)
+        .help("Print each consumed message's metadata");
 
     parent.add_subparser(command_);
   }
@@ -67,6 +71,7 @@ public:
     const auto consumer_count = command_.get<int>("--consumers");
     const auto offset_reset = command_.get("--offset-reset");
     const auto report_interval_ms = command_.get<int>("--report-interval-ms");
+    const auto debug = command_.get<bool>("debug");
 
     if (consumer_count <= 0) {
       throw std::invalid_argument(
@@ -162,6 +167,14 @@ public:
             if (message->err == RD_KAFKA_RESP_ERR_NO_ERROR) {
               consumed_messages++;
               consumed_bytes += static_cast<uint64_t>(message->len);
+              if (debug) {
+                std::lock_guard<std::mutex> lock(output_mu);
+                logging::out() << "consumer[" << consumer_index
+                               << "] message topic=" << message_topic(message)
+                               << " partition=" << message->partition
+                               << " offset=" << message->offset
+                               << " timestamp=" << message_timestamp(message);
+              }
             } else if (message->err != RD_KAFKA_RESP_ERR__PARTITION_EOF) {
               std::lock_guard<std::mutex> lock(output_mu);
               logging::err() << "consumer[" << consumer_index
@@ -282,5 +295,42 @@ private:
     }
     GUARD(assignment, rd_kafka_topic_partition_list_destroy);
     return format_partitions(assignment);
+  }
+
+  static std::string message_topic(const rd_kafka_message_t *message) {
+    if (message == nullptr || message->rkt == nullptr) {
+      return "(unknown)";
+    }
+    return rd_kafka_topic_name(message->rkt);
+  }
+
+  static std::string message_timestamp(const rd_kafka_message_t *message) {
+    if (message == nullptr) {
+      return "(unknown)";
+    }
+
+    rd_kafka_timestamp_type_t timestamp_type = RD_KAFKA_TIMESTAMP_NOT_AVAILABLE;
+    const auto timestamp = rd_kafka_message_timestamp(message, &timestamp_type);
+    if (timestamp < 0 || timestamp_type == RD_KAFKA_TIMESTAMP_NOT_AVAILABLE) {
+      return "not available";
+    }
+
+    const auto timestamp_time_point = std::chrono::system_clock::time_point(
+        std::chrono::milliseconds(timestamp));
+    return logging::format_timestamp(timestamp_time_point) + " (" +
+           timestamp_type_name(timestamp_type) + ")";
+  }
+
+  static std::string
+  timestamp_type_name(rd_kafka_timestamp_type_t timestamp_type) {
+    switch (timestamp_type) {
+    case RD_KAFKA_TIMESTAMP_CREATE_TIME:
+      return "create_time";
+    case RD_KAFKA_TIMESTAMP_LOG_APPEND_TIME:
+      return "log_append_time";
+    case RD_KAFKA_TIMESTAMP_NOT_AVAILABLE:
+      return "not_available";
+    }
+    return "unknown";
   }
 };

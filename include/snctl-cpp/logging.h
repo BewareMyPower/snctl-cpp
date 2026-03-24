@@ -32,13 +32,12 @@ inline std::mutex &mutex() {
   return instance;
 }
 
-inline std::string timestamp_now() {
-  const auto now = std::chrono::system_clock::now();
-  const auto time = std::chrono::system_clock::to_time_t(now);
-  const auto millis =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          now.time_since_epoch()) %
-      1000;
+inline std::string
+format_timestamp(std::chrono::system_clock::time_point time_point) {
+  const auto time = std::chrono::system_clock::to_time_t(time_point);
+  const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          time_point.time_since_epoch()) %
+                      1000;
 
   std::tm local_time{};
 #if defined(_WIN32)
@@ -51,6 +50,10 @@ inline std::string timestamp_now() {
   oss << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S") << '.'
       << std::setfill('0') << std::setw(3) << millis.count();
   return oss.str();
+}
+
+inline std::string timestamp_now() {
+  return format_timestamp(std::chrono::system_clock::now());
 }
 
 inline void write_line(std::ostream &output, std::string_view message) {

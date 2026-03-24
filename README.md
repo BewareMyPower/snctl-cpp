@@ -200,6 +200,15 @@ Consumed 1000 messages (1000 msg/s), bytes: 1024000, poll errors: 0
 ...
 ```
 
+Add `--debug` to print each consumed message's metadata:
+
+```bash
+$ snctl-cpp consume my-topic --debug
+Started 1 consumer on topic "my-topic" in group "snctl-cpp-my-topic-1234567890". Press Ctrl+C to stop.
+consumer[0] message topic=my-topic partition=0 offset=42 timestamp=2026-03-24 10:00:00.123 (create_time)
+...
+```
+
 If `--group` is not provided, `snctl-cpp` generates one automatically. The
 default offset reset policy is `earliest`, which can be changed with
 `--offset-reset latest`.
