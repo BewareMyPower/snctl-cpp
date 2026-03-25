@@ -143,7 +143,7 @@ private:
   static void noop_log_callback(const rd_kafka_t *rk, int level,
                                 const char *fac, const char *buf) {}
 
-  static void delivery_report_callback(rd_kafka_t *rk,
+  static void delivery_report_callback(rd_kafka_t *,
                                        const rd_kafka_message_t *message,
                                        void *opaque_ptr) {
     auto *context = static_cast<Opaque *>(opaque_ptr);
