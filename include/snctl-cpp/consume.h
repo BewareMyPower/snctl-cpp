@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <ctime>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -101,6 +102,9 @@ public:
     std::vector<std::thread> threads;
     std::mutex errors_mu;
     std::mutex output_mu;
+    std::mutex partition_counts_mu;
+    std::map<std::pair<std::string, int32_t>, uint64_t>
+        partition_message_counts;
     std::vector<std::string> errors;
 
     auto add_error = [&errors_mu, &errors](std::string message) {
@@ -119,9 +123,12 @@ public:
           client_configs["auto.offset.reset"] = offset_reset;
           KafkaClient client(
               RD_KAFKA_CONSUMER, client_configs, log_configs, false,
-              [&output_mu, consumer_index](
+              [&output_mu, &partition_counts_mu, &partition_message_counts,
+               consumer_index](
                   rd_kafka_t *rk, rd_kafka_resp_err_t err,
                   const rd_kafka_topic_partition_list_t *partitions) {
+                register_partitions(partitions, partition_counts_mu,
+                                    partition_message_counts);
                 std::lock_guard<std::mutex> lock(output_mu);
                 if (err == RD_KAFKA_RESP_ERR__ASSIGN_PARTITIONS ||
                     err == RD_KAFKA_RESP_ERR__REVOKE_PARTITIONS) {
@@ -167,6 +174,8 @@ public:
             if (message->err == RD_KAFKA_RESP_ERR_NO_ERROR) {
               consumed_messages++;
               consumed_bytes += static_cast<uint64_t>(message->len);
+              increment_partition_count(message, partition_counts_mu,
+                                        partition_message_counts);
               if (debug) {
                 std::lock_guard<std::mutex> lock(output_mu);
                 logging::out() << "consumer[" << consumer_index
@@ -208,11 +217,15 @@ public:
       const auto delta = current_consumed - previous_consumed;
       const auto rate = static_cast<double>(delta) * 1000.0 /
                         static_cast<double>(report_interval_ms);
+      const auto current_partition_counts = snapshot_partition_counts(
+          partition_counts_mu, partition_message_counts);
 
       {
         std::lock_guard<std::mutex> lock(output_mu);
         logging::out() << "Consumed " << current_consumed << " messages ("
-                       << rate << " msg/s), bytes: " << current_bytes
+                       << format_partition_counts(current_partition_counts)
+                       << "), rate: " << rate
+                       << " msg/s, bytes: " << current_bytes
                        << ", poll errors: " << current_errors;
       }
       previous_consumed = current_consumed;
@@ -230,10 +243,13 @@ public:
     }
 
     {
+      const auto current_partition_counts = snapshot_partition_counts(
+          partition_counts_mu, partition_message_counts);
       std::lock_guard<std::mutex> lock(output_mu);
       logging::out() << "Stopped consumers. Consumed "
-                     << consumed_messages.load()
-                     << " messages, bytes: " << consumed_bytes.load()
+                     << consumed_messages.load() << " messages ("
+                     << format_partition_counts(current_partition_counts)
+                     << "), bytes: " << consumed_bytes.load()
                      << ", poll errors: " << poll_errors.load();
     }
 
@@ -332,5 +348,61 @@ private:
       return "not_available";
     }
     return "unknown";
+  }
+
+  static void
+  register_partitions(const rd_kafka_topic_partition_list_t *partitions,
+                      std::mutex &partition_counts_mu,
+                      std::map<std::pair<std::string, int32_t>, uint64_t>
+                          &partition_message_counts) {
+    if (partitions == nullptr) {
+      return;
+    }
+
+    std::lock_guard<std::mutex> lock(partition_counts_mu);
+    for (int i = 0; i < partitions->cnt; i++) {
+      const auto &partition = partitions->elems[i];
+      partition_message_counts.try_emplace(
+          std::make_pair(std::string(partition.topic), partition.partition), 0);
+    }
+  }
+
+  static void
+  increment_partition_count(const rd_kafka_message_t *message,
+                            std::mutex &partition_counts_mu,
+                            std::map<std::pair<std::string, int32_t>, uint64_t>
+                                &partition_message_counts) {
+    std::lock_guard<std::mutex> lock(partition_counts_mu);
+    partition_message_counts[std::make_pair(message_topic(message),
+                                            message->partition)]++;
+  }
+
+  static std::map<std::pair<std::string, int32_t>, uint64_t>
+  snapshot_partition_counts(
+      std::mutex &partition_counts_mu,
+      const std::map<std::pair<std::string, int32_t>, uint64_t>
+          &partition_message_counts) {
+    std::lock_guard<std::mutex> lock(partition_counts_mu);
+    return partition_message_counts;
+  }
+
+  static std::string format_partition_counts(
+      const std::map<std::pair<std::string, int32_t>, uint64_t>
+          &partition_message_counts) {
+    if (partition_message_counts.empty()) {
+      return "none";
+    }
+
+    std::ostringstream oss;
+    bool first = true;
+    for (const auto &[topic_partition, count] : partition_message_counts) {
+      if (!first) {
+        oss << ", ";
+      }
+      first = false;
+      oss << topic_partition.first << "-" << topic_partition.second << ": "
+          << count;
+    }
+    return oss.str();
   }
 };

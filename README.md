@@ -196,7 +196,7 @@ Create multiple consumers on a topic:
 ```bash
 $ snctl-cpp consume my-topic -n 4 --group my-group
 Started 4 consumers on topic "my-topic" in group "my-group". Press Ctrl+C to stop.
-Consumed 1000 messages (1000 msg/s), bytes: 1024000, poll errors: 0
+Consumed 1000 messages (my-topic-0: 250, my-topic-1: 250, my-topic-2: 250, my-topic-3: 250), rate: 1000 msg/s, bytes: 1024000, poll errors: 0
 ...
 ```
 
